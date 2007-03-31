@@ -1,0 +1,20 @@
+debpool (0.2.1) experimental; urgency=low
+
+  * A major change (support for automatic section detection) has been
+    introduced between version 0.1.11 and version 0.2.1. This change
+    causes a change in archive directory layout (specifically, now has a
+    subdirectory for each of the sections defined in the config file),
+    making it look more like the traditional Debian archive. Existing
+    installations will need to do one of two things to cope with this:
+
+      1) Move each package directory into the new pool area, and update any
+      *.package and *.source files to have the correct path to the new pool
+      area, then run debpool --rebuild-files,
+
+    or
+
+      2) Start a new archive area and dump installed/* and pool/*/* into
+      the incoming directory, optionally pare out redundant versions, and
+      then run 'debpool' to re-build the archive.
+
+ -- Joel Aelwyn <fenton@debian.org>  Mon, 21 Feb 2005 13:27:09 -0700

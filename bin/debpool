@@ -1,0 +1,664 @@
+#! /usr/bin/perl -w
+
+#####
+#
+# Copyright 2003-2004 Joel Baker. All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+# 3. Neither the name of the Author nor the names of any contributors
+#    may be used to endorse or promote products derived from this software
+#    without specific prior written permission.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+# SUCH DAMAGE.
+#
+# $Id: debpool 54 2005-02-21 21:48:29Z joel $
+#
+#####
+
+# Put our private support module area into the search path
+
+use lib '/usr/share/debpool/perl5';
+
+# We always want to be careful about things...
+
+use strict;
+use warnings;
+
+use POSIX; # This gets us strftime.
+
+# First things first - figure out how we need to be configured.
+
+use Getopt::Long qw(:config pass_through);
+use DebPool::Config qw(:functions :vars);
+
+# First, grab --config and --nodefault options if they exist. We
+# don't want these in the %Options hash, and they affect what we do when
+# loading it.
+
+my(@config_files);
+my($default);
+
+GetOptions('config=s' => \@config_files, 'default!' => \$default);
+
+# Call Load_Default_Configs if we're loading default values, or
+# Load_Minimal_Configs if we're not (we still need the OptionDefs hash to
+# be populated).
+
+if (!defined($default) || $default) {
+    Load_Default_Configs();
+} else {
+    Load_Minimal_Configs();
+}
+
+# Load any config files we were given.
+
+my($config);
+
+foreach $config (@config_files) {
+    Load_File_Configs($config);
+}
+
+# And finally, pull in any other command line options.
+
+GetOptions(\%Options, values(%OptionDefs));
+
+# Run the cleanup stuff on %Options.
+
+Clean_Options();
+
+# Okay. We're more or less ready to go. First, load some modules that we
+# know we'll be calling.
+
+use DebPool::Dirs qw(:functions :vars); # Directory management
+use DebPool::DB qw(:functions :vars); # Various databases
+use DebPool::GnuPG qw(:functions :vars); # GnuPG interaction routines
+use DebPool::Gzip qw(:functions :vars); # Gzip interaction routines
+use DebPool::Logging qw(:functions :facility :level); # Logging routines
+use DebPool::Packages qw(:functions :vars); # Distribution databases
+use DebPool::Signal qw(:functions :vars); # Handle signals
+
+# Before we do anything else, let's find out if we need to act as a daemon,
+# and if so, whether we can manage to pull it off.
+
+if ($Options{'daemon'}) {
+    Log_Message("Trying to enter daemon mode.", LOG_GENERAL, LOG_DEBUG);
+
+    require Proc::Daemon;
+    Proc::Daemon::Init();
+
+    Log_Message("Now running as a daemon.", LOG_GENERAL, LOG_DEBUG);
+}
+
+# Create the directory tree. This is clean even it it already exists,
+# so we can do it every time we start up. I believe the fancy word is
+# 'idempotent'. We do this before grabbing a lockfile because it should
+# never screw anything up, even if run multiple times at once, and our
+# lockfile may be (probably is, in fact) in one of these places.
+
+if (!Create_Tree()) {
+    my($msg) = "Couldn't create directory tree: $DebPool::Dirs::Error";
+    Log_Message($msg, LOG_GENERAL, LOG_FATAL);
+    die "$msg\n";
+}
+
+# Obtain a lockfile. We should never run more than one occurance; it's too
+# likely that we'd step on our own toes.
+
+if (!sysopen(LOCK_FILE, $Options{'lock_file'}, O_WRONLY|O_CREAT|O_EXCL, 0644)) {
+    my($msg) = "Couldn't obtain lockfile '$Options{'lock_file'}'; ";
+
+    if (open(LOCK_FILE, '<', $Options{'lock_file'}) &&
+       (my($pid) = <LOCK_FILE>)) {
+        chomp($pid);
+        $msg .= "(PID $pid)\n";
+    } else {
+        $msg .= "(unable to read PID)\n";
+    }
+
+    die $msg;
+} else { # Do something useful - like put our PID into the file.
+    print LOCK_FILE "$$\n";
+    close(LOCK_FILE);
+}
+
+# Start the main loop. We use a do/until loop so that we always fire off at
+# least once.
+
+MAIN_LOOP: do {
+
+Log_Message("Starting processing run", LOG_GENERAL, LOG_DEBUG);
+
+# First off, open up our databases. We do this each time through the loop,
+# so that they get flushed periodically if we're in daemon mode.
+
+Open_Databases();
+
+# This keeps track of what distributions need to have their Packages and
+# Sources files rebuilt. We force it to be 'everything' if the user has
+# requested a rebuild (normally from the command line).
+
+my(%rebuild) = ();
+
+if ($Options{'rebuild-files'}) {
+    my($dist);
+    foreach $dist (@{$Options{'realdists'}}) {
+        $rebuild{$dist} = 1;
+    }
+}
+
+# Check for any changes files in the incoming directory.
+
+my(@changefiles) = Scan_Changes($Options{'incoming_dir'});
+
+# Go through each of the changes files we found, and process it. This is the
+# heart of things.
+
+my($changefile);
+
+foreach $changefile (@changefiles) {
+    Log_Message("Processing changefile '$changefile'", LOG_GENERAL, LOG_INFO);
+
+    # .dsc = .changes, minus the part after the last _, plus .dsc
+
+    my(@parts) = split(/_/, $changefile);
+    pop(@parts);
+    my($dscfile) = join('_', @parts) . '.dsc';
+
+    my($changes_data) = Parse_Changes("$Options{'incoming_dir'}/$changefile");
+    if (!defined($changes_data)) {
+        Log_Message("Failure parsing changes file '$changefile': " .
+                    $DebPool::Packages::Error, LOG_GENERAL, LOG_ERROR);
+        next;
+    }
+
+    my($with_source) = undef; # Upload with or without source?
+    my($temp);
+
+    for $temp (@{$changes_data->{'Architecture'}}) {
+        if ('source' eq $temp) {
+            $with_source = 1;
+        }
+    }
+
+    my($has_orig) = undef; # Has an orig tarball?
+    my($filehr);
+
+    foreach $filehr (@{$changes_data->{'Files'}}) {
+        if ($filehr->{'Filename'} =~ /orig\.tar\.gz/) {
+            $has_orig = 1;
+        }
+    }
+
+    my($dsc_data) = Parse_DSC("$Options{'incoming_dir'}/$dscfile");
+    if ($with_source && !defined($dsc_data)) {
+        Log_Message("Failure parsing dsc file '$dscfile': " .
+                    $DebPool::Packages::Error, LOG_GENERAL, LOG_ERROR);
+        next;
+    }
+
+    my($package) = $changes_data->{'Source'};
+    my($version) = $changes_data->{'Version'};
+
+    if ($Options{'require_sigs'}) {
+        # First, check the changefile signature
+
+        if (!Check_Signature("$Options{'incoming_dir'}/$changefile")) {
+            Reject_Package($changefile, $changes_data);
+            Log_Message("GPG signature failure in changes file '$changefile'",
+                        LOG_REJECT, LOG_ERROR);
+            next;
+        } else {
+            Log_Message("Successful changes signature: '$changefile'",
+                         LOG_GPG, LOG_DEBUG);
+        }
+
+        # Now check the dscfile signature
+
+        if ($with_source && !Check_Signature("$Options{'incoming_dir'}/$dscfile")) {
+            Reject_Package($changefile, $changes_data);
+            Log_Message("GPG signature failure in dsc file '$dscfile'",
+                        LOG_REJECT, LOG_ERROR);
+            next;
+        } else {
+            Log_Message("Successful dsc signature: '$dscfile'",
+                        LOG_GPG, LOG_DEBUG);
+        }
+    }
+
+    # Verify MD5 checksums on all files.
+
+    my($valid) = 1;
+
+    foreach $filehr (@{$changes_data->{'Files'}}) {
+        if (!(Verify_MD5("$Options{'incoming_dir'}/$filehr->{'Filename'}",
+                         $filehr->{'MD5Sum'}))) {
+            $valid = undef;
+        }
+    }
+
+    if (!$valid) {
+        Reject_Package($changefile, $changes_data);
+
+        my($msg) = "MD5 checksum failure in changes file '$changefile'";
+        Log_Message($msg, LOG_REJECT, LOG_ERROR);
+        next;
+    }
+
+    $valid = 1;
+    my($rejected) = undef;
+
+    if ($with_source) {
+        foreach $filehr (@{$dsc_data->{'Files'}}) {
+            # A bit of a special case here; if the Changes file lists an
+            # orig tarball, we must *not* have one for that version in the
+            # pool. If it doesn't, then we *must* have one. In either case,
+            # as long as it's in the right place we use that file for the
+            # MD5Sum check when the file is listed in the DSC.
+
+            my($file) = $filehr->{'Filename'};
+
+            if ($file =~ /orig\.tar\.gz/) {
+                my($section) = Guess_Section($changes_data);
+                my($pkg_pooldir) = join('/',
+                    ($Options{'pool_dir'}, PoolDir($package, $section),
+                    $package));
+                
+                if ($has_orig) { # Orig tarball uploaded
+                    if (-e "$pkg_pooldir/$file") {
+                        Reject_Package($changefile, $changes_data);
+    
+                        my($msg) = "Duplicate orig tarball '$file'";
+                        Log_Message($msg, LOG_REJECT, LOG_ERROR);
+
+                        $rejected = 1;
+                        last; # Don't check other files, we just rejected
+                    } elsif (!(-e "$Options{'incoming_dir'}/$file")) {
+                        Reject_Package($changefile, $changes_data);
+    
+                        my($msg) = "Missing orig tarball '$file'";
+                        Log_Message($msg, LOG_REJECT, LOG_ERROR);
+
+                        $rejected = 1;
+                        last; # Don't check other files, we just rejected
+                    } else {
+                        $file = "$Options{'incoming_dir'}/$file";
+                    }
+                } else { # Orig tarball in pool - we hope
+                    if (!(-e "$pkg_pooldir/$file")) {
+                        Reject_Package($changefile, $changes_data);
+    
+                        my($msg) = "Missing orig tarball '$file'";
+                        Log_Message($msg, LOG_REJECT, LOG_ERROR);
+
+                        $rejected = 1;
+                        last; # Don't check other files, we just rejected
+                    } else {
+                        $file = "$pkg_pooldir/$file";
+                    }
+                }
+            } else { # Not an orig tarball - must be in upload
+                $file = "$Options{'incoming_dir'}/$file";
+            }
+
+            # Whatever it is, it must also pass the MD5 checksum test.
+
+            if (!(Verify_MD5($file, $filehr->{'MD5Sum'}))) {
+                $valid = undef;
+                last; # Don't check other files, we already failed
+            }
+        }
+    }
+
+    next if ($rejected); # Reject message already logged, go to next package.
+
+    if (!$valid) {
+        Reject_Package($changefile, $changes_data);
+
+        my($msg) = "MD5 checksum failure in dsc file '$dscfile'";
+        Log_Message($msg, LOG_REJECT, LOG_ERROR);
+        next;
+    }
+
+    # Go through each distribution in the changes file, and decide whether
+    # the package is valid for that distribution.
+
+    my($distribution, $realdist);
+    my(@valid_dists);
+
+    foreach $distribution (@{$changes_data->{'Distribution'}}) {
+        $realdist = $distribution;
+
+        if (defined($Options{'virtual_dists'}->{$realdist})) {
+            $realdist = $Options{'virtual_dists'}->{$realdist};
+        }
+
+        if (defined($Options{'dists'}->{$realdist})) {
+            $realdist = $Options{'dists'}->{$realdist};
+        }
+
+        if (!defined($realdist)) {
+            Log_Message("Distribution $distribution does not exist",
+                        LOG_INSTALL, LOG_ERROR);
+            next;
+        }
+
+        my($allow) = Allow_Version($package, $version, $realdist);
+
+        if (!defined($allow)) {
+            Log_Message("Version check for $version failed: " .
+                        $DebPool::Packages::Error, LOG_INSTALL, LOG_ERROR);
+            next;
+        }
+
+        if (!$allow) {
+            Log_Message("Cannot install version $version of $package to " .
+                        "$realdist", LOG_INSTALL, LOG_WARNING);
+            next;
+        }
+
+        # It's valid. Put it in the list.
+
+        push(@valid_dists, $realdist);
+    }
+
+    if (-1 == $#valid_dists) {
+        Reject_Package($changefile, $changes_data);
+        Log_Message("No valid distributions for version $version of $package",
+                    LOG_REJECT, LOG_ERROR);
+        next;
+    }
+
+    # Install the package
+
+    if (Install_Package($changefile, $changes_data, $dscfile, $dsc_data, \@valid_dists)) {
+        my($dist);
+        foreach $dist (@valid_dists) {
+            $rebuild{$dist} = 1;
+        }
+
+        my($msg) = "Installed $package ($version) to ";
+        $msg .= "distribution(s): " . join(', ', @valid_dists);
+        Log_Message($msg, LOG_INSTALL, LOG_INFO);
+    } else {
+        # Something is very, very wrong.
+        Log_Message("Couldn't install package '$package': " . 
+                    $DebPool::Packages::Error, LOG_INSTALL, LOG_FATAL);
+        Close_Databases();
+        unlink($Options{'lock_file'}); # Release our lock
+        die "Couldn't install package '$package'\n";
+    }
+
+    # And, now that that's done, audit the package area in the pool to get
+    # rid of crufty, obsolete versions.
+
+    Audit_Package($package, $changes_data);
+}
+
+# Regenerate {Packages,Sources}{,.gz} for distributions which need it. Also
+# rebuild Release files that need it, if we're doing them.
+
+my($dist, $section);
+
+foreach $dist (keys(%rebuild)) {
+    my(@rel_filelist) = ();
+    foreach $section (@{$Options{'sections'}}) {
+        my(@archs) = @{$Options{'archs'}};
+        @archs = grep(!/^all$/, @archs); # We don't build binary-all files.
+
+        my($arch);
+
+ARCH_LOOP:
+        foreach $arch (@{$Options{'archs'}}) {
+            # We cheat, and use @triple for dist/section/arch inputs.
+            # Perl lets us get away with this. I'd care, except that Perl
+            # prototyping isn't, so it's useless to not do this.
+
+            my(@triple) = ($dist, $section, $arch);
+
+            # Generate a Packages/Sources file.
+
+            my($file) = Generate_List(@triple);
+    
+            if (!defined($file)) {
+                my($msg) = "Couldn't create list for $dist/$section/${arch}: ";
+                $msg .= $DebPool::Packages::Error;
+                Log_Message($msg, LOG_GENERAL, LOG_ERROR);
+    
+                next;
+            }
+
+            # If we're compressing distribution files, do that here.
+
+            my($gzfile);
+            if ($Options{'compress_dists'}) {
+                $gzfile = Gzip_File($file);
+
+                if (!defined($gzfile)) {
+                    my($msg) = "Couldn't create compressed file: ";
+                    $msg .= $DebPool::Gzip::Error;
+                    Log_Message($msg, LOG_GENERAL, LOG_ERROR);
+
+                    unlink($file);
+                    next;
+                }
+            }
+
+            # If we're doing Release files, now is the time for triples.
+
+            my($relfile);
+            my($sigfile);
+
+            if ($Options{'do_release'}) {
+                require DebPool::Release;
+
+                # Release versions are YYYY.MM.DD.HH.MM.SS (GMT) by default.
+
+                my($release_version) = strftime('%Y.%m.%d.%H.%M.%S', gmtime());
+                $relfile = DebPool::Release::Generate_Release_Triple(
+                    @triple, $release_version);
+
+                if (!defined($relfile)) {
+                    my($msg) = "Couldn't create Release file: ";
+                    $msg .= $DebPool::Release::Error;
+                    Log_Message($msg, LOG_GENERAL, LOG_ERROR);
+
+                    unlink($file);
+                    if (defined($gzfile)) {
+                        unlink($gzfile);
+                    }
+                    next;
+                }
+                
+                if ($Options{'sign_release'}) {
+                    $sigfile = Sign_Release($relfile);
+    
+                    if (!defined($sigfile)) {
+                        my($msg) = "Couldn't create Release signature file: ";
+                        $msg .= $DebPool::GnuPG::Error;
+                        Log_Message($msg, LOG_GENERAL, LOG_ERROR);
+    
+                        unlink($file);
+
+                        if (defined($gzfile)) {
+                            unlink($gzfile);
+                        }
+
+                        if (defined($relfile)) {
+                            unlink($relfile);
+                        }
+
+                        next;
+                    }
+                }
+            }
+
+            # Install {Packages,Sources}{,.gz}
+
+            if (!Install_List(@triple, $file, $gzfile)) {
+
+                my($msg) = "Couldn't install distribution files for ";
+                $msg .= "$dist/$section/${arch}: " . $DebPool::Packages::Error;
+                Log_Message($msg, LOG_GENERAL, LOG_ERROR);
+
+                if (-e $file) {
+                    unlink($file);
+                }
+
+                if (defined($gzfile) && -e $gzfile) {
+                    unlink($gzfile);
+                }
+
+                if (defined($relfile) && -e $relfile) {
+                    unlink($relfile);
+                }
+
+                if (defined($sigfile) && -e $sigfile) {
+                    unlink($sigfile);
+                }
+
+                next;
+            }
+
+            # Install Release{,.gpg}
+
+            if (defined($relfile) &&
+                !DebPool::Release::Install_Release(@triple, $relfile, $sigfile)) {
+
+                my($msg) = "Couldn't install release files for ";
+                $msg .= "$dist/$section/${arch}: " . $DebPool::Release::Error;
+                Log_Message($msg, LOG_GENERAL, LOG_ERROR);
+
+                if (-e $relfile) {
+                    unlink($relfile);
+                }
+
+                if (defined($sigfile) && -e $sigfile) {
+                    unlink($sigfile);
+                }
+
+                next;
+            }
+
+            my($pushfile) = Archfile(@triple, 0);
+            $pushfile =~ s/${dist}\///;
+            push(@rel_filelist, $pushfile);
+
+            if (defined($gzfile)) {
+                push(@rel_filelist, $pushfile . '.gz');
+            }
+
+            if (defined($relfile)) {
+                $pushfile = Archfile(@triple, 1);
+                $pushfile =~ s/${dist}\///;
+                $pushfile .= '/Release';
+                push(@rel_filelist, $pushfile);
+
+                if (defined($sigfile)) {
+                    push(@rel_filelist, $pushfile . '.gpg');
+                }
+            }
+        }
+    }
+
+    # If we're doing Release files, now is the time for the general dist one.
+
+    my($relfile);
+    my($sigfile);
+
+    if ($Options{'do_release'}) {
+        require DebPool::Release;
+
+        # Release versions are YYYY.MM.DD.HH.MM.SS (GMT) by default.
+
+        my($release_version) = strftime('%Y.%m.%d.%H.%M.%S', gmtime());
+        $relfile = DebPool::Release::Generate_Release_Dist(
+            $dist, $release_version, @rel_filelist);
+
+        if (!defined($relfile)) {
+            my($msg) = "Couldn't create Release file: ";
+            $msg .= $DebPool::Release::Error;
+            Log_Message($msg, LOG_GENERAL, LOG_ERROR);
+        } else {
+            if ($Options{'sign_release'}) {
+                $sigfile = Sign_Release($relfile);
+    
+                if (!defined($sigfile)) {
+                    my($msg) = "Couldn't create Release signature file: ";
+                    $msg .= $DebPool::GnuPG::Error;
+                    Log_Message($msg, LOG_GENERAL, LOG_ERROR);
+                    unlink($relfile);
+                    $relfile = undef;
+                }
+            }
+        }
+    }
+
+    # Install Release{,.gpg}
+
+    if (defined($relfile) &&
+        !DebPool::Release::Install_Release($dist, undef, undef,
+            $relfile, $sigfile)) {
+        my($msg) = "Couldn't install release files for ";
+        $msg .= "${dist}: " . $DebPool::Release::Error;
+        Log_Message($msg, LOG_GENERAL, LOG_ERROR);
+
+        if (-e $relfile) {
+            unlink($relfile);
+        }
+
+        if (defined($sigfile) && -e $sigfile) {
+            unlink($sigfile);
+        }
+    }
+}
+
+# Close out the databases, ensuring that they're flushed to disk. We'll
+# just reopen them in a moment, if we're in daemon mode; it's still good to
+# write them out.
+
+Close_Databases();
+
+# This will short-circuit if we catch a signal while sleeping.
+
+if ($Options{'daemon'}) {
+    Log_Message("Waiting on changes to incoming dir.", LOG_GENERAL, LOG_DEBUG);
+
+    if (!Monitor_Incoming()) {
+        my($msg) = "Error in Monitor_Incoming: " . $DebPool::Dirs::Error;
+        Log_Message($msg, LOG_GENERAL, LOG_ERROR);
+    }
+}
+
+# End of MAIN_LOOP; we loop back until either we're not in daemon mode
+# (that is, we've been told to single-pass), or until we catch a signal.
+
+} until ((!$Options{'daemon'}) || $Signal_Caught);
+
+# Release our lock
+
+unlink($Options{'lock_file'});
+
+Log_Message("Exiting.", LOG_GENERAL, LOG_DEBUG);
+
+exit(0);
+
+__END__
+
+# vim:set tabstop=4 expandtab:

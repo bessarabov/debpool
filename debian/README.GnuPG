@@ -1,0 +1,70 @@
+Basic instructions for setting up GnuPG:
+
+1. Make sure that the gnupg package is installed.
+
+[ If you're using a system-wide debpool user, do all of these in that     ]
+[ account!                                                                ]
+
+2. Run gpg twice, with an empty input, to make sure that it creates it's
+   options file and keyrings. On a new account, this should look something
+   like the following:
+
+   $ echo -n "" | gpg
+   gpg: /home/debpool/.gnupg: directory created
+   gpg: /home/debpool/.gnupg/options: new options file created
+   gpg: you have to start GnuPG again, so it can read the new options file
+   $ echo -n "" | gpg
+   gpg: /home/debpool/.gnupg/secring.gpg: keyring created
+   gpg: /home/debpool/.gnupg/pubring.gpg: keyring created
+   gpg: processing message failed: eof
+
+3. Create a primary key, using the 'gpg --gen-key' command.
+
+   NOTE: you don't want to use this key to sign the Release files, if
+   you're doing that; we'll do that later.
+
+   NOTE: You can skip this step if you're running debpool on your own
+   account, and you already have a primary key.
+
+4. Import public keys onto one of the uploader keyrings for each
+   person allowed to upload packages to the archive. Current keys
+   for Debian Developers can be downloaded from the keyserver at
+   keyring.debian.org; others must be downloaded from public servers, or
+   obtained directly from the person in question. The default keyring
+   to search is 'uploaders.gpg'; this can be changed by adjusting
+   $Options{'gpg_keyrings'}.
+
+   Don't forget to create the keyring; doing 'touch ~/.gnupg/uploaders.gpg'
+   should suffice.
+
+   Note that signature verification WILL NOT use your default keyring; if
+   you want it to be checked, you must add it to 'gpg_keyrings' explicitly.
+
+   Keys can be imported by the command 'gpg --no-default-keyring --keyring
+   uploaders.gpg --keyring pubring.gpg --import <keyfile>' (or '--import
+   <keyfile>' can be replaced with '--keyserver <server> --recv-keys
+   <key ID>'). Note that --no-default-keyring is required to prevent the
+   main keyring (which will not normally be searched) from being the
+   default keyring while importing, but that GnuPG won't handle trustdb
+   updates unless it has the public key that matches the default secret
+   key (normally found in ~/.gnupg/pubring.gpg, which is listed *after*
+   uploaders.gpg so that it will still be searched).
+
+[ If you're only using GPG signature verification, you can stop here. The ]
+[ rest of this file deals with setting debpool up to do automatic signing ]
+[ of Release files.                                                       ]
+
+5. Generate an archive signing key using 'gpg --gen-key', and record the
+   passphrase in ~/.gnupg/passphrase (make sure it's mode 0600!)
+
+   Yes, this violates traditional practice, but there isn't any other
+   way to automatically sign the Release file (though, if you care, you
+   could always manually sign the Release file after each archive run, or
+   turn off debpool's Release file generation and manully generate/sign a
+   Release file for each section).
+
+6. Edit the appropriate Config.pm file (/etc/debpool/Config.pm or
+   ~/.debpool/Config.pm), set $Options{'sign_release'} to 1 and
+   $Options{'gpg_sign_key'} to the key ID of your archive signing key.
+   Note that this won't have any effect unless you also enable Release
+   file generation (but it won't hurt anything, either).

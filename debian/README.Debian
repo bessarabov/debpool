@@ -1,0 +1,9 @@
+Important notes about using debpool:
+
+* For archives using any of the extended features (in particular, any of
+  the GnuPG-based signature verification or Release signing capabilities),
+  it is strongly advised that you run debpool under it's own user. See
+  README.User for more information on doing this.
+
+* For setting up signature verification or Release signing, please see the
+  README.GnuPG file.

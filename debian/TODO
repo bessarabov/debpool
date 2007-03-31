@@ -1,0 +1,37 @@
+Items which still need to be done:
+
+(general)
+
+* Support tools for manipulating metadata (which really means 'anything
+  stored in database files').
+
+* Support rebuild-dbs (including invocation from rebuild-all)?
+  - What can this do with stuff that has migrated between distributions?
+
+(for debian-installer support)
+
+* Handle udeb packages correctly (entries go into
+    dists/<dist>/<section>/debian-installer/<binary>/Packages instead of
+    dists/<dist>/<section>/<binary>/Packages)
+
+(for hooks)
+
+* Hooks
+  - Installation
+  - Rejection
+  - Byhand (with some sort of requeue? Or "byhand MUST be missing"?)
+
+
+(for sane binary-all)
+
+* Support an external source for binary-all data (for example, snarfing it
+  out of a Packages file from http.us.debian.org).
+
+(unknown)
+
+* Integrate with (or emulate) debsig-verify, to allow for verification of
+  signed deb files (in addition to signed metadata).
+
+* Some way to double-parse values in $archive (allowing the equivalent of
+  relative path references from archive_dir, so that changes are reflected
+  in all other paths by default).

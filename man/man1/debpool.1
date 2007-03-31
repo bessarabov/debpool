@@ -1,0 +1,60 @@
+'\" t
+.\" ** The above line should force tbl to be a preprocessor **
+.\" Man page for debpool
+.\"
+.\" Copyright 2003-2004 Joel Aelwyn
+.\"
+.\" $Id: debpool.1 27 2004-11-07 03:06:59Z joel $
+.\"
+.TH debpool 1 "07 October 2003" "0.1.5" "Debian Pool Archive Manager"
+.SH NAME
+debpool \- pool-based Debian package archive manager
+.SH SYNOPSIS
+.\" The general command line
+.B debpool
+[\|
+.I options
+\|]
+.SH DESCRIPTION
+.B debpool
+is a utility for managing pool-based archives of Debian packages. It
+can be run by individual users, and/or under a dedicated system user
+configuration.
+.SH EXAMPLES
+None
+.SH OVERVIEW
+None
+.SH DEFAULTS
+See the
+.BR DebPool::Config(5)
+manpage for details on configuration option defaults.
+.SH OPTIONS
+See the
+.BR DebPool::Config(5)
+manpage for details on all configuration options.
+.SH "EXIT STATUS"
+.TP
+.B 0
+Successful program execution
+.TP
+.B 1
+Failure of any kind
+.SH ENVIRONMENT
+Nothing useful
+.SH FILES
+.TP
+.I /usr/share/debpool/perl5/DebPool/Config.pm
+Program (internal) defaults file.
+.TP
+.I /etc/debpool/Config.pm
+System defaults file.
+.TP
+.I $HOME/.debpool/Config.pm
+User defaults file.
+.SH SEE ALSO
+.BR DebPool::Config(5)
+.SH BUGS
+The entire manpage sucks, because the author hasn't taken the time
+to make it look nicer, and most of the important information really
+lives in the pod2man output for the configuration file (also known as
+DebPool::Config(5)).

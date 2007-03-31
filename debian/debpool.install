@@ -1,0 +1,3 @@
+examples/Config.pm etc/debpool
+bin/debpool usr/bin
+share/DebPool usr/share/debpool/perl5

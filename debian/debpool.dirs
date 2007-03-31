@@ -1,0 +1,14 @@
+etc
+etc/debpool
+usr
+usr/bin
+usr/share
+usr/share/debpool
+usr/share/debpool/perl5
+usr/share/doc/debpool
+usr/share/doc/debpool/examples
+usr/share/man
+usr/share/man/man5
+var
+var/cache
+var/cache/debpool

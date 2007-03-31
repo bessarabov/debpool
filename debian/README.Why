@@ -1,0 +1,33 @@
+Why have yet another Debian package repository tool?
+
+* Most or all of the other tools require extensive non-core support.
+
+  While many users may not find this problematic, those working on a new
+  port, and trying to make it self-hosting, will often have a difficult
+  time trying to get some of the more packages with a complex tree of
+  Build-Dependancies (such as Python) to a point where they can be
+  compiled. Conversely, a working shell, an installation of Perl, and
+  a compiler are some of the first things that must be present, simply
+  because so much of the rest of the system depends on these (and they are
+  often available from another port or a non-Debian system).
+
+  Therefore, I have attempted to keep the requirements for packages not
+  found in the Debian core system (Essential packages, or those with
+  Priority required) to an absolute minimum (ideally, 'none'), or at the
+  very least, only require packages that can easily be compiled on a system
+  with little more than a shell, perl, and a working C compiler.
+
+  Note that some amount of significant functionality (such as Release
+  files and signature checking) does depend on more complex packages (such
+  as GnuPG or the perl Digest modules), which is why these are in the
+  Recommends field; however, these functions that use these are niceties
+  (if very useful ones), and an archive can operate without them, if
+  necessary.
+
+* No other tool handles the new pool-style layout readily.
+
+  As of this writing, none of the tools in Debian except for katie (part
+  of the softare used to run the primary Debian archives) can handle a
+  pool-style directory layout in any straightforward fashion, while setting
+  up a full instance of katie requires significant support infrastructure
+  (such as an SQL server, among other things).
