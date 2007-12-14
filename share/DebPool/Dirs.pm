@@ -60,6 +60,8 @@ BEGIN {
     @EXPORT_OK = qw(
         &Archfile
         &Create_Tree
+        &Tree_Mkdir
+        &Setup_Incoming_Watch
         &Monitor_Incoming
         &PoolBasePath
         &PoolDir
@@ -69,7 +71,8 @@ BEGIN {
     );
 
     %EXPORT_TAGS = (
-        'functions' => [qw(&Archfile &Create_Tree &Monitor_Incoming
+        'functions' => [qw(&Archfile &Create_Tree &Tree_Mkdir
+                           &Monitor_Incoming &Setup_Incoming_Watch
                            &PoolBasePath &PoolDir &Scan_Changes &Scan_All
                            &Strip_Subsection)],
         'vars' => [qw()],
@@ -86,6 +89,8 @@ BEGIN {
 # this directly, because it would conflict with other modules.
 
 our($Error);
+
+my($inotify);
 
 ### File lexicals
 
@@ -198,18 +203,9 @@ sub Create_Tree {
 
     my($section);
     foreach $section (@{$Options{'sections'}}) {
+        next if $section =~ m/\s*\/debian-installer/;
         if (!Tree_Mkdir("$pool_dir/$section", $pool_dir_mode)) {
             return 0;
-        }
-
-        my($letter);
-        foreach $letter ('a' .. 'z') {
-            if (!Tree_Mkdir("$pool_dir/$section/$letter", $pool_dir_mode)) {
-                return 0;
-            }
-            if (!Tree_Mkdir("$pool_dir/$section/lib$letter", $pool_dir_mode)) {
-                return 0;
-            }
         }
     }
 
@@ -313,10 +309,70 @@ sub Scan_All {
     return \@return;
 }
 
+# Setup_Incoming_Watch()
+#
+# Creates a Linux::Inotify2 object and adds a watch on the incoming directory.
+# Returns 1 on success, 0 on failure (and sets $Error).
+
+sub Setup_Incoming_Watch {
+    use DebPool::Logging qw(:functions :facility :level);
+    use DebPool::Config;
+    if (!eval{ require Linux::Inotify2; }) {
+        Log_Message("liblinux-inotify2-perl is required to activate inotify support for debpool.", LOG_GENERAL, LOG_WARNING);
+        return 0;
+    } else {
+        use Linux::Inotify2;
+    }
+
+    $inotify = new Linux::Inotify2;
+    if (!$inotify) {
+        $Error = "Unable to create new inotify object: $!";
+        Log_Message("$Error", LOG_GENERAL, LOG_ERROR);
+        return 0;
+    }
+    if (!$inotify->watch("$Options{'incoming_dir'}",
+                         IN_CLOSE_WRITE |
+                         IN_MOVED_TO )) {
+        $Error = "Unable to watch $Options{'incoming_dir'}: $!";
+        Log_Message("$Error", LOG_GENERAL, LOG_ERROR);
+        return 0;
+    }
+    Log_Message("Watching $Options{'incoming_dir'} with Inotify",
+                LOG_GENERAL, LOG_DEBUG);
+    return 1;
+}
+
+# Watch_Incoming()
+#
+# Reads events from the Inotify2 object (blocking until one occurs),
+# picks out the .changes file(s) and returns them (if any; otherwise
+# it loops).
+#
+# Returns a list of .changes files on success, undef on failure (which
+# includes interruption by a signal).
+    
+sub Watch_Incoming {
+    use DebPool::Logging qw(:functions :facility :level);
+
+    while (my @events = $inotify->read) {
+	my @changes;
+	foreach (@events) {
+	    push @changes, $_->name if ($_->name =~ /\.changes$/);
+	}
+        if (@changes > 0) {
+            Log_Message("Found changes: ".join(', ', @changes),
+                        LOG_GENERAL, LOG_DEBUG);
+            return @changes;
+        }
+    }
+    return undef;
+}
+
 # Monitor_Incoming()
 #
 # Monitors the incoming directory, looping until the directory is updated.
-# Returns 1 on success, 0 on failure (and sets $Error).
+# Returns a list of .changes files on success, undef on failure (which
+# includes interruption by a signal - check $DebPool::Signal::Signal_Caught).
 
 sub Monitor_Incoming {
     use DebPool::Config;
@@ -327,28 +383,29 @@ sub Monitor_Incoming {
     # further.
 
     if ($DebPool::Signal::Signal_Caught) {
-        return 1;
+        return undef;
     }
 
-    my(@stat) = stat($Options{'incoming_dir'});
-    if (!@stat) {
-        $Error = "Couldn't stat incoming_dir '$Options{'incoming_dir'}'";
-        return 0;
+    if ($Options{'use_inotify'}) {
+        return Watch_Incoming();
+    } else {
+        my(@stat) = stat($Options{'incoming_dir'});
+        my($mtime) = $stat[9];
+
+        do {
+            Log_Message("Incoming monitor: sleeping for " .
+                        $Options{'sleep'} . " seconds", LOG_GENERAL, LOG_DEBUG);
+            sleep($Options{'sleep'});
+            @stat = stat($Options{'incoming_dir'});
+            if (!@stat) {
+                $Error = "Couldn't stat incoming_dir '$Options{'incoming_dir'}'";
+                return undef;
+            }
+            return undef if $DebPool::Signal::Signal_Caught;
+        } until ($stat[9] != $mtime);
+        
+        return Scan_Changes();
     }
-    my($mtime) = $stat[9];
-
-    do {
-        Log_Message("Incoming monitor: sleeping for " .
-            $Options{'sleep'} . " seconds", LOG_GENERAL, LOG_DEBUG);
-        sleep($Options{'sleep'});
-        @stat = stat($Options{'incoming_dir'});
-        if (!@stat) {
-            $Error = "Couldn't stat incoming_dir '$Options{'incoming_dir'}'";
-            return 0;
-        }
-    } until (($stat[9] != $mtime) || ($DebPool::Signal::Signal_Caught));
-
-    return 1;
 }
 
 # PoolDir($name, $section, $archive_base)

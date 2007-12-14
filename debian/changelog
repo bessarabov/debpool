@@ -1,3 +1,47 @@
+debpool (0.2.4~0unreleased) expiremental; urgency=low
+
+  [ Andres Mejia ]
+  * Added udeb support. Thanks Free Ekanayaka. Closes: #245526
+  * Fixed problem with packages with multiple '+' characters. Fixes part of bug
+    322593.
+  * Added instruction on optional use of GnuPG. Closes: #454100
+  * Added Homepage and Vcs entries in control file. Closes: #453905
+  * Changed debpool recommends leaving out libdigest-md5-perl. Closes: #454102
+  * Fixed problem with missing newlines in .package files.
+    + Thanks Timo Weingärtner. Closes: #400402
+  * Fixed problem with use of Vcs entries. Closes: #454173
+  * Fixed problem with binary only uploads. Closes: #322593
+    + Also fixed problem with source only uploads and binary only uploads
+      without binary-all packages.
+  * Added fix to keep pool tree minimized. Thanks Magnus Holmgren.
+    + Closes: #350503
+  * Fixed problem with extracting information from wrong deb file.
+    + Thanks Julien Valroff. Closes: #310320
+  * Fixed bad instructions in README.Users. Closes: #408105
+    + Thanks Eddy Petrișor.
+  * Fixed jumbled checksum lists problem. Closes: #415323
+    + Thanks Magnus Holmgren.
+  * Added init script for running debpool. Closes: #415639
+    + Thanks Magnus Holmgren.
+    + Also added option for debpool to print lockfile path.
+    + Also adding logs to /var/log/debpool.log.
+    + init scripts needed slight modification to get them running with root.
+  * Fixed problem where debpool doesn't recover from power failure.
+    + Closes: #412090
+  * Fixed problem with debpool not reaping its gzip children. Closes: #415204
+  * Included example configuration file for use in installing a pool layout for
+    another OS distribution. Closes: #455439
+  * Have debpool check for Proc::Daemon before attempting to run as daemon.
+    + Closes: #455449
+  * Have debpool handle bzip2 compression as well as gzip in dynamical fasion.
+    + Thanks Magnus Holmgren.
+    + Still supporting Gzip interactions using gzip package.
+    + Closes: #415447
+  * Added inotify2 support. Closes: #415272
+    + Thanks Magnus Holmgren.
+
+ -- Andres Mejia <mcitadel@gmail.com>  Thu, 13 Dec 2007 00:12:08 -0500
+
 debpool (0.2.3) experimental; urgency=low
 
   * Handle sections with no subsection more usefully in

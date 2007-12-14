@@ -30,7 +30,7 @@ debpool user/group:
 
    For example:
 
-   sudo mkdir /var/log/debpool
+   sudo touch /var/log/debpool
    sudo chown debpool:debpool /var/log/debpool
    sudo chmod a+rx /var/log/debpool
 

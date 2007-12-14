@@ -1,0 +1,5 @@
+"/var/log/debpool.log" {
+	monthly
+	rotate 2
+	missingok
+}

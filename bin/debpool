@@ -89,21 +89,50 @@ Clean_Options();
 use DebPool::Dirs qw(:functions :vars); # Directory management
 use DebPool::DB qw(:functions :vars); # Various databases
 use DebPool::GnuPG qw(:functions :vars); # GnuPG interaction routines
-use DebPool::Gzip qw(:functions :vars); # Gzip interaction routines
 use DebPool::Logging qw(:functions :facility :level); # Logging routines
 use DebPool::Packages qw(:functions :vars); # Distribution databases
 use DebPool::Signal qw(:functions :vars); # Handle signals
+
+my @compression_methods;
+
+# We should support the Gzip interaction routines with the gzip package as
+# it is of priority Required
+if ($Options{'compress_dists_with_zlib'}) {
+    if (eval{ require Compress::Zlib; }) {
+        require DebPool::Zlib_Gzip; # Gzip interaction routines
+        push @compression_methods, new DebPool::Zlib_Gzip;
+    } else {
+        require DebPool::Gzip;
+        push @compression_methods, new DebPool::Gzip; # Gzip interaction routines
+        Log_Message("libcompress-zlib-perl not found is required to use compress_dists_with_zlib. Falling back to gzip.", LOG_GENERAL, LOG_WARNING);
+    }
+} elsif ($Options{'compress_dists'}) {
+    require DebPool::Gzip; # Gzip interaction routines
+    push @compression_methods, new DebPool::Gzip;
+}
+if ($Options{'bzcompress_dists'}) {
+    if (eval{ require Compress::Bzip2; }) {
+        require DebPool::Bzip2; # Bzip2 interaction routines
+        push @compression_methods, new DebPool::Bzip2;
+    } else {
+        Log_Message("libcompress-bzip2-perl is required to use bzcompress_dists.", LOG_GENERAL, LOG_WARNING);
+    }
+}
 
 # Before we do anything else, let's find out if we need to act as a daemon,
 # and if so, whether we can manage to pull it off.
 
 if ($Options{'daemon'}) {
-    Log_Message("Trying to enter daemon mode.", LOG_GENERAL, LOG_DEBUG);
+    Log_Message("Trying to enter daemon mode.", LOG_GENERAL, LOG_INFO);
 
-    require Proc::Daemon;
-    Proc::Daemon::Init();
-
-    Log_Message("Now running as a daemon.", LOG_GENERAL, LOG_DEBUG);
+    if (eval{ require Proc::Daemon; }) {
+        Proc::Daemon::Init();
+        Log_Message("Now running as a daemon.", LOG_GENERAL, LOG_INFO);
+    } else {
+        print "ERROR: Running as a daemon requires installation of libproc-daemon-perl.\n";
+        Log_Message("Running as a daemon requires installation of libproc-daemon-perl.", LOG_GENERAL, LOG_ERROR);
+        exit 1;
+    }
 }
 
 # Create the directory tree. This is clean even it it already exists,
@@ -118,25 +147,62 @@ if (!Create_Tree()) {
     die "$msg\n";
 }
 
+# Print the path set for the lockfile and exit. This is mainly used to run
+# debpool with start-stop-daemon.
+
+if ($Options{'get_lock_path'}) {
+    print "$Options{'lock_file'}\n";
+    exit 0;
+}
+
 # Obtain a lockfile. We should never run more than one occurance; it's too
 # likely that we'd step on our own toes.
 
 if (!sysopen(LOCK_FILE, $Options{'lock_file'}, O_WRONLY|O_CREAT|O_EXCL, 0644)) {
-    my($msg) = "Couldn't obtain lockfile '$Options{'lock_file'}'; ";
+    my($msg) = "Couldn't obtain lockfile '$Options{'lock_file'}': ";
 
     if (open(LOCK_FILE, '<', $Options{'lock_file'}) &&
        (my($pid) = <LOCK_FILE>)) {
         chomp($pid);
-        $msg .= "(PID $pid)\n";
+        if (open(STAT_FILE, '<', "/proc/$pid/stat") &&
+            (my($stat) = <STAT_FILE>)) {
+            if ($stat =~ m/debpool/) {
+                # debpool process was already started
+                $msg .= "debpool was already running with PID $pid\n";
+                close(LOCK_FILE);
+                close(STAT_FILE);
+                die $msg;
+            }
+        } else {
+            # debpool wasn't running using the specified PID so remove
+            # the lock and create a new one
+            close(LOCK_FILE);
+            unlink $Options{'lock_file'};
+            sysopen(NEW_LOCK_FILE, $Options{'lock_file'},
+                O_WRONLY|O_CREAT|O_EXCL, 0644);
+            print NEW_LOCK_FILE "$$\n";
+            close(NEW_LOCK_FILE);
+        }
     } else {
+        # Could not read PID from lockfile
         $msg .= "(unable to read PID)\n";
     }
-
-    die $msg;
-} else { # Do something useful - like put our PID into the file.
+} else { # debpool wasn't running so create a lock
     print LOCK_FILE "$$\n";
     close(LOCK_FILE);
 }
+
+if ($Options{'daemon'} && $Options{'use_inotify'}) {
+    # Fall back to normal monitoring if Inotify setup fails.
+    if (!Setup_Incoming_Watch()) {
+        $Options{'use_inotify'} = 0;
+        Log_Message("Inotify setup failed. Falling back to normal monitoring.", LOG_GENERAL, LOG_WARNING);
+    }
+}
+
+# Check for any changes files in the incoming directory.
+
+my(@changefiles) = Scan_Changes($Options{'incoming_dir'});
 
 # Start the main loop. We use a do/until loop so that we always fire off at
 # least once.
@@ -162,10 +228,6 @@ if ($Options{'rebuild-files'}) {
         $rebuild{$dist} = 1;
     }
 }
-
-# Check for any changes files in the incoming directory.
-
-my(@changefiles) = Scan_Changes($Options{'incoming_dir'});
 
 # Go through each of the changes files we found, and process it. This is the
 # heart of things.
@@ -206,11 +268,14 @@ foreach $changefile (@changefiles) {
         }
     }
 
-    my($dsc_data) = Parse_DSC("$Options{'incoming_dir'}/$dscfile");
-    if ($with_source && !defined($dsc_data)) {
-        Log_Message("Failure parsing dsc file '$dscfile': " .
+    my($dsc_data);
+    if ($with_source) {
+        $dsc_data = Parse_DSC("$Options{'incoming_dir'}/$dscfile");
+        if ($with_source && !defined($dsc_data)) {
+            Log_Message("Failure parsing dsc file '$dscfile': " .
                     $DebPool::Packages::Error, LOG_GENERAL, LOG_ERROR);
-        next;
+            next;
+        }
     }
 
     my($package) = $changes_data->{'Source'};
@@ -446,18 +511,19 @@ ARCH_LOOP:
 
             # If we're compressing distribution files, do that here.
 
-            my($gzfile);
-            if ($Options{'compress_dists'}) {
-                $gzfile = Gzip_File($file);
+            my @zfiles;
+            foreach my $method (@compression_methods) {
+                my $zfile = $method->Compress_File($file);
 
-                if (!defined($gzfile)) {
-                    my($msg) = "Couldn't create compressed file: ";
-                    $msg .= $DebPool::Gzip::Error;
+                if (!defined($zfile)) {
+                    my($msg) = "Couldn't create compressed file (";
+                    $msg .= $method->Name . "): ";
+                    $msg .= $method->Error;
                     Log_Message($msg, LOG_GENERAL, LOG_ERROR);
-
-                    unlink($file);
-                    next;
+                    unlink($file, @zfiles);
+                    next ARCH_LOOP;
                 }
+                push @zfiles, $zfile;
             }
 
             # If we're doing Release files, now is the time for triples.
@@ -479,10 +545,7 @@ ARCH_LOOP:
                     $msg .= $DebPool::Release::Error;
                     Log_Message($msg, LOG_GENERAL, LOG_ERROR);
 
-                    unlink($file);
-                    if (defined($gzfile)) {
-                        unlink($gzfile);
-                    }
+                    unlink($file, @zfiles);
                     next;
                 }
                 
@@ -494,11 +557,7 @@ ARCH_LOOP:
                         $msg .= $DebPool::GnuPG::Error;
                         Log_Message($msg, LOG_GENERAL, LOG_ERROR);
     
-                        unlink($file);
-
-                        if (defined($gzfile)) {
-                            unlink($gzfile);
-                        }
+                        unlink($file, @zfiles);
 
                         if (defined($relfile)) {
                             unlink($relfile);
@@ -511,7 +570,7 @@ ARCH_LOOP:
 
             # Install {Packages,Sources}{,.gz}
 
-            if (!Install_List(@triple, $file, $gzfile)) {
+            if (!Install_List(@triple, $file, @zfiles)) {
 
                 my($msg) = "Couldn't install distribution files for ";
                 $msg .= "$dist/$section/${arch}: " . $DebPool::Packages::Error;
@@ -521,8 +580,8 @@ ARCH_LOOP:
                     unlink($file);
                 }
 
-                if (defined($gzfile) && -e $gzfile) {
-                    unlink($gzfile);
+                foreach (@zfiles) {
+                    unlink if -e;
                 }
 
                 if (defined($relfile) && -e $relfile) {
@@ -560,8 +619,9 @@ ARCH_LOOP:
             $pushfile =~ s/${dist}\///;
             push(@rel_filelist, $pushfile);
 
-            if (defined($gzfile)) {
-                push(@rel_filelist, $pushfile . '.gz');
+            foreach (@zfiles) {
+                my ($ext) = m{\.([^/]+)$};  # List context!
+                push(@rel_filelist, "${pushfile}.${ext}");
             }
 
             if (defined($relfile)) {
@@ -640,7 +700,8 @@ Close_Databases();
 if ($Options{'daemon'}) {
     Log_Message("Waiting on changes to incoming dir.", LOG_GENERAL, LOG_DEBUG);
 
-    if (!Monitor_Incoming()) {
+    @changefiles = Monitor_Incoming();
+    if (!@changefiles && !$Signal_Caught) {
         my($msg) = "Error in Monitor_Incoming: " . $DebPool::Dirs::Error;
         Log_Message($msg, LOG_GENERAL, LOG_ERROR);
     }

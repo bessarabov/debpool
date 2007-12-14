@@ -236,7 +236,7 @@ sub Set_Versions {
     foreach $hashref (@files) {
         my($filename) = $hashref->{'Filename'};
 
-        if ($filename =~ m/^([^_]+)_([^_]+)_.+\.deb/) {
+        if ($filename =~ m/^([^_]+)_([^_]+)_.+\.u?deb/) {
             my($package) = $1;
             my($version) = $2;
 

@@ -4,11 +4,14 @@ Priority: extra
 Maintainer: Joel Aelwyn <fenton@debian.org>
 Standards-Version: 3.7.2.0
 Build-Depends: debhelper (>= 4)
+Vcs-SVN: svn://svn.debian.org/svn/debpool
+Vcs-Browser: http://svn.debian.org/wsvn/debpool/?op=log
+Homepage: http://alioth.debian.org/projects/debpool
 
 Package: debpool
 Architecture: all
 Depends: ${perl:Depends}
-Recommends: gnupg, libdigest-md5-perl, libdigest-sha1-perl, libproc-daemon-perl
+Recommends: gnupg, libdigest-sha1-perl, libproc-daemon-perl
 Description: pool-based Debian package archiver
  DebPool is a package archive maintenance utility designed with a goal of
  removing any dependency on code not shipped as part of the core Debian
@@ -17,7 +20,7 @@ Description: pool-based Debian package archiver
  It is capable of all of the following:
    * Tracking multiple distributions (however, it does *not* include
      unstable -> testing promotion scripts).
-   * Generating Release files (requires libdigest-{md5,sha1}-perl)
+   * Generating Release files (requires libdigest-sha1-perl)
    * Verifying package signatures (requires gnupg).
    * Signing release files (requires Release files and gnupg).
    * Running in single-pass or daemon modes.
@@ -25,4 +28,3 @@ Description: pool-based Debian package archiver
  DebPool is intended to be a lightweight replacement for the full Debian
  archival scripts, in the tradition of debarchive and mini-dinstall, but
  using a pool layout and avoiding external dependencies.
- 

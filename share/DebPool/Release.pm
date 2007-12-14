@@ -93,6 +93,8 @@ my(@SigFiles) = (
     'Sources',
     'Packages.gz',
     'Sources.gz',
+    'Packages.bz2',
+    'Sources.bz2',
 );
 
 ### File lexicals
@@ -118,7 +120,7 @@ sub Generate_Release_Triple {
 
     my($archive, $component, $architecture, $version) = @_;
 
-    my(%Checksums);
+    my(@Checksums);
 
     # Before we bother to do much else, generate the MD5 and SHA1 checksums
     # we'll need later. This is mostly so that we can catch errors before
@@ -140,9 +142,7 @@ sub Generate_Release_Triple {
     # Now, for each file, generate MD5 and SHA1 checksums, and put them
     # into Checksums for later use (assuming it's a file we care about).
 
-    my($ck_file);
-
-    foreach $ck_file (@dirfiles) {
+    foreach my $ck_file (@dirfiles) {
         if (0 == grep(/^$ck_file$/, @SigFiles)) { # We don't care about it.
             next;
         }
@@ -169,7 +169,8 @@ sub Generate_Release_Triple {
         my($md5) = Digest::MD5::md5_hex(@filetext);
         my($sha1) = Digest::SHA1::sha1_hex(@filetext);
 
-        $Checksums{$ck_file} = {
+        push @Checksums, {
+            'File' => $ck_file,
             'Size' => $size,
             'MD5' => $md5,
             'SHA1' => $sha1,
@@ -199,15 +200,15 @@ sub Generate_Release_Triple {
     # Now print MD5 and SHA1 checksum lists.
 
     print $tmpfile_handle "MD5Sum:\n";
-    foreach $ck_file (keys(%Checksums)) {
-        printf $tmpfile_handle " %s %8d %s\n", $Checksums{$ck_file}->{'MD5'},
-            $Checksums{$ck_file}->{'Size'}, $ck_file;
+    foreach my $checksum (@Checksums) {
+        printf $tmpfile_handle " %s %8d %s\n", $checksum->{'MD5'},
+            $checksum->{'Size'}, $checksum->{'File'};
     }
 
     print $tmpfile_handle "SHA1:\n";
-    foreach $ck_file (keys(%Checksums)) {
-        printf $tmpfile_handle " %s %8d %s\n", $Checksums{$ck_file}->{'SHA1'},
-            $Checksums{$ck_file}->{'Size'}, $ck_file;
+    foreach my $checksum (@Checksums) {
+        printf $tmpfile_handle " %s %8d %s\n", $checksum->{'SHA1'},
+            $checksum->{'Size'}, $checksum->{'File'};
     }
 
     close($tmpfile_handle);
@@ -232,7 +233,7 @@ sub Generate_Release_Dist {
     my($version) = shift(@_);
     my(@files) = @_;
 
-    my(%Checksums);
+    my(@Checksums);
     my($dists_dir) = $Options{'dists_dir'};
 
     # Before we bother to do much else, generate the MD5 and SHA1 checksums
@@ -261,7 +262,8 @@ sub Generate_Release_Dist {
         my($md5) = Digest::MD5::md5_hex(@filetext);
         my($sha1) = Digest::SHA1::sha1_hex(@filetext);
     
-        $Checksums{$file} = {
+        push @Checksums, {
+            'File' => $file,
             'Size' => $size,
             'MD5' => $md5,
             'SHA1' => $sha1,
@@ -290,15 +292,15 @@ sub Generate_Release_Dist {
     # Now print MD5 and SHA1 checksum lists.
 
     print $tmpfile_handle "MD5Sum:\n";
-    foreach $file (keys(%Checksums)) {
-        printf $tmpfile_handle " %s %8d %s\n", $Checksums{$file}->{'MD5'},
-            $Checksums{$file}->{'Size'}, $file;
+    foreach $file (@Checksums) {
+        printf $tmpfile_handle " %s %8d %s\n", $file->{'MD5'},
+            $file->{'Size'}, $file->{'File'};
     }
 
     print $tmpfile_handle "SHA1:\n";
-    foreach $file (keys(%Checksums)) {
-        printf $tmpfile_handle " %s %8d %s\n", $Checksums{$file}->{'SHA1'},
-            $Checksums{$file}->{'Size'}, $file;
+    foreach $file (@Checksums) {
+        printf $tmpfile_handle " %s %8d %s\n", $file->{'SHA1'},
+            $file->{'Size'}, $file->{'File'};
     }
 
     close($tmpfile_handle);

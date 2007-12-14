@@ -1,8 +1,8 @@
-package DebPool::Gzip;
+package DebPool::Bzip2;
 
 ###
 #
-# DebPool::Gzip - Module for handling Gzip interactions
+# DebPool::Bzip2 - Module for handling Bzip2 interactions
 #
 # Copyright 2003-2004 Joel Aelwyn. All rights reserved.
 # 
@@ -30,7 +30,7 @@ package DebPool::Gzip;
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 #
-# $Id: Gzip.pm 27 2004-11-07 03:06:59Z joel $
+# $Id: Bzip2.pm 27 2004-11-07 03:06:59Z joel $
 #
 ###
 
@@ -44,11 +44,6 @@ use strict;
 use warnings;
 
 use POSIX; # WEXITSTATUS
-
-# Needed for open2()
-
-use Fcntl;
-use IPC::Open2;
 
 ### Module setup
 
@@ -65,11 +60,11 @@ BEGIN {
     );
 
     @EXPORT_OK = qw(
-        &Gzip_File
+        &Bzip2_File
     );
 
     %EXPORT_TAGS = (
-        'functions' => [qw(&Gzip_File)],
+        'functions' => [qw(&Bzip2_File)],
         'vars' => [qw()],
     );
 }
@@ -93,64 +88,62 @@ our($Error);
 
 ### Meaningful functions
 
-# Gzip_File($file)
+# Bzip_File($file)
 #
-# Generates a gzipped version of $file using gzip, and returns the filename.
-# Returns undef (and sets $Error) on failure.
+# Generates a bzipped version of $file, and returns the filename. Returns
+# undef (and sets $Error) on failure.
 
-sub Gzip_File {
+sub Bzip2_File {
     use DebPool::Logging qw(:functions :facility :level);
+    use Compress::Bzip2;
 
     my($file) = @_;
 
     # Open a secure tempfile to write the compressed data into
 
-    my($tmpfile) = new File::Temp( SUFFIX => '.gz', UNLINK => 0 );
+    my($tmpfile) = new File::Temp( SUFFIX => '.bz2' );
+    my $bz = bzopen($tmpfile, 'wb9');
+    if (!$bz) {
+        $Error = "Couldn't initialize compression library: " . $bzerrno;
+        return undef;
+    }	
 
     # Open the source file so that we have it available.
-
     if (!open(SOURCE, '<', $file)) {
         $Error = "Couldn't open source file '$file': $!";
         return undef;
     }
 
-    # We are go for main engine start
+    while (1) {
+	my $buffer;
+	my $bytesread = read SOURCE, $buffer, 4096;
+	if (!defined $bytesread) {
+	    $Error = "Error reading from '$file': $!";
+	    close SOURCE;
+	    return undef;
+	}
+	last if $bytesread == 0;
+	my $byteswritten = $bz->bzwrite($buffer);
+	if ($byteswritten < $bytesread) {
+	    $Error = "Error bzwriting to temporary file: " . $bz->bzerror;
+	    close SOURCE;
+	    return undef;
+	}
+    }
 
-    my(@args) = ('--best', '--force', '--stdout');
+	my $bzflush = $bz->bzflush(BZ_FINISH);
 
-    my($gzip_pid) = open2(*GZIP_IN, *GZIP_OUT, '/bin/gzip', @args);
-
-    my($child_pid);
-    if ($child_pid = fork) { # In the parent
-        # Send all the data to Gzip;
-
-        close(GZIP_IN);
-        close($tmpfile);
-
-        print GZIP_OUT <SOURCE>;
-        close(GZIP_OUT);
-        close(SOURCE);
-
-        waitpid($child_pid, 0);
-        waitpid($gzip_pid, 0);
-    } else { # In the child - we hope
-        if (!defined($child_pid)) {
-            die "Couldn't fork: $!\n";
-        }
-
-        # Read back the results, and print them into the tempfile.
-
-        close(GZIP_OUT);
-        close(SOURCE);
-
-        print $tmpfile <GZIP_IN>;
-        close(GZIP_IN);
-        close($tmpfile);
-
-        exit(0);
+	# BZ_OK and BZ_STREAM_END are ok
+    if (($bzflush != BZ_OK) && ($bzflush != BZ_STREAM_END)) {
+	$Error = "Error flushing compressed file: " . $bz->bzerror;
+	close SOURCE;
+	return undef;
     }
 
     # And we're done
+    close SOURCE;
+    $bz->bzclose;
+    $tmpfile->unlink_on_destroy(0);
     return $tmpfile->filename;
 }
 
@@ -160,7 +153,7 @@ sub new {
 
 sub Compress_File {
     my $self = shift;
-    my $tempname = Gzip_File(@_);
+    my $tempname = Bzip2_File(@_);
     if ($tempname) {
 	$self->{'ERROR'} = undef;
     }
@@ -176,7 +169,7 @@ sub Error {
 }
 
 sub Name {
-    'gzip';
+    'bzip2';
 }
 
 END {}

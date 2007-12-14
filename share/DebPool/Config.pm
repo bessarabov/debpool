@@ -505,16 +505,48 @@ Default value: "$Options{'archive_dir'}/.lock"
 $Options{'lock_file'} = "$Options{'archive_dir'}/.lock";
 $OptionDefs{'lock_file'} = 'lock_file=s';
 
+=item B<get_lock_path> => I<get lock path>
+
+Display the full path set for the lock file and exit. This is mainly used
+to run debpool as a daemon with start-stop-daemon.
+
+=cut
+
+$Options{'get_lock_path'} = 0;
+$OptionDefs{'get_lock_path'} = 'get_lock_path!';
+
 =item B<compress_dists> = I<boolean>
 
 This determines whether or not compressed versions of the distribution
-files (Packages.gz, Sources.gz) are generated. Note that enabling this
-introduces a dependancy on gzip.
+files (Packages.gz, Sources.gz) are generated in gzip.
 
 =cut
 
 $Options{'compress_dists'} = 0;
 $OptionDefs{'compress_dists'} = 'compress_dists!';
+
+=item B<compress_dists_with_zlib> = I<boolean>
+
+This determines whether or not compressed versions of the distribution
+files (Packages.gz, Sources.gz) are generated.in gzip using Compress::Zlib.
+Note that enabling this introduces a dependency on libcompress-zlib-perl.
+Enabling this option will override compress_dists.
+
+=cut
+
+$Options{'compress_dists_with_zlib'} = 0;
+$OptionDefs{'compress_dists_with_zlib'} = 'compress_dists_with_zlib!';
+
+=item B<bzcompress_dists> = I<boolean>
+
+This determines whether or not compressed versions of the distribution
+files (Packages.gz, Sources.gz) are generated in bzip2. Note that enabling
+this introduces a dependancy on libcompress-bzip2-perl.
+
+=cut
+
+$Options{'bzcompress_dists'} = 0;
+$OptionDefs{'bzcompress_dists'} = 'bzcompress_dists!';
 
 =back
 
@@ -590,7 +622,7 @@ Default value: [ 'main', 'contrib', 'non-free' ]
 
 =cut
 
-$Options{'sections'} = [ 'main', 'contrib', 'non-free' ];
+$Options{'sections'} = [ 'main', 'contrib', 'non-free', 'debian-installer' ];
 $OptionDefs{'sections'} = 'sections=s@';
 
 =item B<archs> => I<array of architecture names>
@@ -864,6 +896,17 @@ Default value: 300 (5 minutes)
 
 $Options{'sleep'} = 300;
 $OptionDefs{'sleep'} = 'sleep=i';
+
+=item B<use_inotify> = I<boolean>
+
+Sets whether debpool should use inotify to monitor for incoming changes
+
+Default value: 0 (false)
+
+=cut
+
+$Options{'use_inotify'} = 0;
+$OptionDefs{'use_inotify'} = 'use_inotify!';
 
 =item B<rollback> = I<boolean>
 

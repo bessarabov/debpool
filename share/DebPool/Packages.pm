@@ -340,7 +340,7 @@ sub Parse_Changes {
 
     for $count (0..$#changes) {
         if ($found) {
-            if ($changes[$count] =~ m/^\s*$/) { # Blank line
+            if ($changes[$count] =~ m/^(\s*$|\S)/) { # End of Files entry
                 $found = 0; # No longer in Files
             } elsif ($changes[$count] =~ m/\s*([[:xdigit:]]+)\s+(\d+)\s+(\S+)\s+(\S+)\s+(\S+)/) {
                 my($md5, $size, $sec, $pri, $file) = ($1, $2, $3, $4, $5);
@@ -488,7 +488,7 @@ sub Parse_DSC {
 
     for $count (0..$#dsc) {
         if ($found) {
-            if ($dsc[$count] =~ m/^\s*$/) { # Blank line
+            if ($dsc[$count] =~ m/^(\s*$|\S)/) { # End of Files entry
                 $found = 0; # No longer in Files
             } elsif ($dsc[$count] =~ m/\s*([[:xdigit:]]+)\s+(\d+)\s+(\S+)/) {
                 my($md5, $size, $file) = ($1, $2, $3);
@@ -567,14 +567,31 @@ sub Generate_List {
                 ($Options{'pool_dir'}, PoolDir($source, $section), $source));
             my($version) = Get_Version($distribution, $source, 'meta');
             my($target) = "$pool/${source}_" . Strip_Epoch($version);
-            $target .= '.package';
+            $target .= "_$arch\.package";
+            my($target_all) = "$pool/${source}_" . Strip_Epoch($version);
+            $target_all .= "_all\.package";
 
-            if (!open(PKG, '<', "$target")) {
-                my($msg) = "Skipping package entry for all packages from ";
-                $msg .= "${source}: couldn't open '$target' for reading: $!";
+            # Check for any binary-arch packages
+            if (-e $target) {
+                if (!open(PKG_ARCH, '<', "$target")) {
+                    my($msg) = "Skipping package entry for all packages from ";
+                    $msg .= "${source}: couldn't open '$target' for reading: $!";
 
-                Log_Message($msg, LOG_GENERAL, LOG_ERROR);
-                next;
+                    Log_Message($msg, LOG_GENERAL, LOG_ERROR);
+                    next;
+                }
+            }
+
+            # Check for any binary-all packages
+            if (-e $target_all) {
+                if (!open(PKG_ALL, '<', "$target_all")) {
+                    my($msg) = "Skipping package entry for all packages ";
+                    $msg .= "from ${source}: couldn't open '$target_all' for";
+                    $msg .= " reading: $!";
+
+                    Log_Message($msg, LOG_GENERAL, LOG_ERROR);
+                    next;
+                }
             }
 
             # Playing around with the record separator ($/) to make this
@@ -583,15 +600,26 @@ sub Generate_List {
             my($backup_RS) = $/;
             $/ = "";
 
-            my(@entries) = <PKG>;
-            close(PKG);
+            my(@arch_entries);
+            if (-e $target) { # Write entries from arch packages
+                @arch_entries = <PKG_ARCH>;
+                close(PKG_ARCH);
+            }
+
+            my(@all_entries);
+            if (-e $target_all) { # Write entries from all packages
+                @all_entries = <PKG_ALL>;
+                close(PKG_ALL);
+            }
 
             $/ = $backup_RS;
 
             # Pare it down to the relevant entries, and print those out.
 
-            @entries = grep(/\nArchitecture: ($arch|all)\n/, @entries);
-            print $tmpfile_handle @entries;
+            @arch_entries = grep(/\nArchitecture: ($arch)\n/, @arch_entries);
+            @all_entries = grep(/\nArchitecture: all\n/, @all_entries);
+            print $tmpfile_handle @arch_entries;
+            print $tmpfile_handle @all_entries;
         }
     }
 
@@ -625,22 +653,16 @@ sub Install_Package {
     my($pkg_ver) = $chg_hashref->{'Version'};
 
     my($guess_section) = Guess_Section($chg_hashref);
-    my($pkg_dir) = join('/',
-        ($pool_dir, PoolDir($pkg_name, $guess_section), $pkg_name));
+    my($pkg_pool_subdir) = join('/',
+        ($pool_dir, PoolDir($pkg_name, $guess_section)));
+    my($pkg_dir) = join('/', ($pkg_pool_subdir, $pkg_name));
 
-    # Make sure the package directory exists (and is a directory!)
+    # Create the directory or error out
 
-    if (! -e $pkg_dir) {
-        if (!mkdir($pkg_dir)) {
-            $Error = "Failed to mkdir '$pkg_dir': $!";
-            return 0;
-        }
-        if (!chmod($Options{'pool_dir_mode'}, $pkg_dir)) {
-            $Error = "Failed to chmod '$pkg_dir': $!";
-            return 0;
-        }
-    } elsif (! -d $pkg_dir) {
-        $Error = "Target '$pkg_dir' is not a directory.";
+    if (!Tree_Mkdir($pkg_pool_subdir, $Options{'pool_dir_mode'})) {
+        return 0;
+    }
+    if (!Tree_Mkdir($pkg_dir, $Options{'pool_dir_mode'})) {
         return 0;
     }
 
@@ -661,19 +683,25 @@ sub Install_Package {
 
     # Generate and install .package and .source metadata files.
 
-    my($pkg_file) = Generate_Package($chg_hashref);
+    my(@pkg_archs) = @{$chg_hashref->{'Architecture'}};
+    @pkg_archs = grep(!/source/, @pkg_archs); # Source is on it's own.
 
-    if (!defined($pkg_file)) {
-        $Error = "Failed to generate .package file: $Error";
-        return undef;
-    }
+    my($target);
+    foreach my $pkg_arch (@pkg_archs) {
+        my($pkg_file) = Generate_Package($chg_hashref, $pkg_arch);
 
-    my($target) = "$pkg_dir/${pkg_name}_" . Strip_Epoch($pkg_ver) . '.package';
+        if (!defined($pkg_file)) {
+            $Error = "Failed to generate .package file: $Error";
+            return undef;
+        }
 
-    if (!Move_File($pkg_file, $target, $Options{'pool_file_mode'})) {
-        $Error = "Failed to move '$pkg_file' to '$target': ";
-        $Error .= $DebPool::Util::Error;
-        return 0;
+        $target = "$pkg_dir/${pkg_name}_" . Strip_Epoch($pkg_ver) . "_$pkg_arch" . '.package';
+
+        if (!Move_File($pkg_file, $target, $Options{'pool_file_mode'})) {
+            $Error = "Failed to move '$pkg_file' to '$target': ";
+            $Error .= $DebPool::Util::Error;
+            return 0;
+        }
     }
 
     if (defined($dsc) && defined($dsc_hashref)) {
@@ -718,6 +746,9 @@ sub Install_Package {
         Set_Versions($distribution, $pkg_name, $pkg_ver,
             $chg_hashref->{'Files'});
         $ComponentDB{$distribution}->{$pkg_name} = $component;
+    }
+    if ( $section eq 'debian-installer' ) {
+        $component .= '/debian-installer';
     }
 
     return 1;
@@ -820,6 +851,21 @@ sub Audit_Package {
 
     my($package, $changes_hashref) = @_;
 
+    # Checking for version of package being installed
+    my($changes_version) = $changes_hashref->{'Version'};
+    # Checking for binary only upload
+    my($with_source) = undef;
+    # Checking for binary-all packages in binary only upload
+    my($with_indep) = undef;
+    for my $temp (@{$changes_hashref->{'Architecture'}}) {
+        if ('source' eq $temp) {
+            $with_source = 1;
+        }
+        if ('all' eq $temp) {
+            $with_indep = 1;
+        }
+    }
+
     my($installed_dir) = $Options{'installed_dir'};
     my($pool_dir) = $Options{'pool_dir'};
 
@@ -872,7 +918,7 @@ sub Audit_Package {
             $bin_package = $1;
             $version = $2;
             $deb = 1;
-        } elsif ($file =~ m/^([^_]+)_([^_]+)\.package$/) { # package metadata
+        } elsif ($file =~ m/^([^_]+)_([^_]+)_.+\.package$/) { # package metadata
             $bin_package = $1;
             $version = $2;
         } elsif ($file =~ m/^([^_]+)_([^_]+)\.source$/) { # source metadata
@@ -884,8 +930,20 @@ sub Audit_Package {
             next;
         }
 
-        # Skip it if we recognize it as a valid version.
+        # Skip files if we recognize it as a valid version.
 
+        # Skipping dsc, diff.gz, and orig tarball files if doing a binary only
+        # upload
+        if (!$with_source) {
+            $src = 0;
+            # Skip binary-all packages in a binary only upload without
+            # binary-all packages as long as they're of the same changes
+            # version
+            if ((!$with_indep) &&
+                    ($file =~ m/\Q_${changes_version}_all.\Eu?deb/)) {
+                $deb = 0;
+            }
+        }
         my($matched) = 0;
         my($dist);
         foreach $dist (@{$Options{'realdists'}}) {
@@ -956,7 +1014,7 @@ sub Generate_Package {
     use DebPool::Dirs qw(:functions);
     use DebPool::Logging qw(:functions :facility :level);
 
-    my($changes_data) = @_;
+    my($changes_data, $arch) = @_;
     my($source) = $changes_data->{'Source'};
     my(@files) = @{$changes_data->{'Files'}};
     my($pool_base) = PoolBasePath();
@@ -966,95 +1024,88 @@ sub Generate_Package {
     my($tmpfile_handle, $tmpfile_name) = tempfile();
 
     my(@packages) = @{$changes_data->{'Binary'}};
-    my(@architectures) = @{$changes_data->{'Architecture'}};
-    @architectures = grep(!/source/, @architectures); # Source is on it's own.
 
-    my($package, $arch);
+    my($package);
 
     foreach $package (@packages) {
-        foreach $arch (@architectures) {
-            # Construct a pattern to match the filename and nothing else.
-            # This used to be an exact match using the source version, but
-            # Debian's standards are sort of insane, and the version number
-            # on binary files is not always the same as that on the source
-            # file (nor is it even something simple like "source version
-            # without the epoch" -- it is more or less arbitrary, as long
-            # as it is a well-formed version number).
+        # Construct a pattern to match the filename and nothing else.
+        # This used to be an exact match using the source version, but
+        # Debian's standards are sort of insane, and the version number
+        # on binary files is not always the same as that on the source
+        # file (nor is it even something simple like "source version
+        # without the epoch" -- it is more or less arbitrary, as long
+        # as it is a well-formed version number).
+        my($filepat) = qr/^\Q${package}_\E.*\Q_${arch}.\Eu?deb/;
+        my($section) = Guess_Section($changes_data);
+        my($pool) = join('/', (PoolDir($source, $section), $source));
 
-            my($filepat) = "${package}_.*_${arch}\\.deb";
-            $filepat =~ s/\+/\\\+/;
+        my($marker) = -1;
+        my($count) = 0;
 
-            my($section) = Guess_Section($changes_data);
-            my($pool) = join('/', (PoolDir($source, $section), $source));
-    
-            my($marker) = -1;
-            my($count) = 0;
+        # Step through each file, match against filename. Save matches
+        # for later use.
 
-            # Step through each file, match against filename. Save matches
-            # for later use.
-
-            for $count (0..$#files) {
-                if ($files[$count]->{'Filename'} =~ m/$filepat/) {
-                    $marker = $count;
-                }
+        for $count (0..$#files) {
+            if ($files[$count]->{'Filename'} =~ m/^$filepat$/) {
+                $marker = $count;
             }
-
-            # The changes file has a stupid quirk; it puts all binaries from
-            # a package in the Binary: line, even if they weren't built (for
-            # example, an Arch: all doc package when doing an arch-only build
-            # for a port). So if we didn't find a .deb file for it, assume
-            # that it's one of those, and skip, rather than choking on it.
-
-            next if (-1 == $marker);
-
-            # Run Dpkg_Info to grab the dpkg --info data on the package.
-
-            my($file) = $files[$marker]->{'Filename'};
-            my($info) = Dpkg_Info("$Options{'pool_dir'}/$pool/$file");
-    
-            # Dump all of our data into the metadata tempfile.
-        
-            print $tmpfile_handle "Package: $package\n";
-
-            if (defined($info->{'Priority'})) {
-                print $tmpfile_handle "Priority: $info->{'Priority'}\n";
-            }
-
-            if (defined($info->{'Section'})) {
-                print $tmpfile_handle "Section: $info->{'Section'}\n";
-            }
-
-            if (defined($info->{'Essential'})) {
-                print $tmpfile_handle "Essential: $info->{'Essential'}\n";
-            }
-
-            print $tmpfile_handle "Installed-Size: $info->{'Installed-Size'}\n";
-
-            print $tmpfile_handle "Maintainer: $changes_data->{'Maintainer'}\n";
-            print $tmpfile_handle "Architecture: $arch\n";
-            print $tmpfile_handle "Source: $source\n";
-            print $tmpfile_handle "Version: $changes_data->{'Version'}\n";
-        
-            # All of the inter-package relationships go together, and any
-            # one of them can potentially be empty (and omitted).
-
-            my($field);
-            foreach $field (@Relationship_Fields) {
-                if (defined($info->{$field})) {
-                    print $tmpfile_handle "${field}: $info->{$field}\n";
-                }
-            }
-        
-            # And now, some stuff we can grab out of the parsed changes
-            # data far more easily than anywhere else.
-
-            print $tmpfile_handle "Filename: $pool_base/$pool/$file\n";
-
-            print $tmpfile_handle "Size: $files[$marker]->{'Size'}\n";
-            print $tmpfile_handle "MD5sum: $files[$marker]->{'MD5Sum'}\n";
-        
-            print $tmpfile_handle "Description: $info->{'Description'}";
         }
+
+        # The changes file has a stupid quirk; it puts all binaries from
+        # a package in the Binary: line, even if they weren't built (for
+        # example, an Arch: all doc package when doing an arch-only build
+        # for a port). So if we didn't find a .deb file for it, assume
+        # that it's one of those, and skip, rather than choking on it.
+
+        next if (-1 == $marker);
+
+        # Run Dpkg_Info to grab the dpkg --info data on the package.
+
+        my($file) = $files[$marker]->{'Filename'};
+        my($info) = Dpkg_Info("$Options{'pool_dir'}/$pool/$file");
+
+        # Dump all of our data into the metadata tempfile.
+
+        print $tmpfile_handle "Package: $package\n";
+
+        if (defined($info->{'Priority'})) {
+            print $tmpfile_handle "Priority: $info->{'Priority'}\n";
+        }
+
+        if (defined($info->{'Section'})) {
+            print $tmpfile_handle "Section: $info->{'Section'}\n";
+        }
+
+        if (defined($info->{'Essential'})) {
+            print $tmpfile_handle "Essential: $info->{'Essential'}\n";
+        }
+
+        print $tmpfile_handle "Installed-Size: $info->{'Installed-Size'}\n";
+
+        print $tmpfile_handle "Maintainer: $changes_data->{'Maintainer'}\n";
+        print $tmpfile_handle "Architecture: $arch\n";
+        print $tmpfile_handle "Source: $source\n";
+        print $tmpfile_handle "Version: $changes_data->{'Version'}\n";
+
+        # All of the inter-package relationships go together, and any
+        # one of them can potentially be empty (and omitted).
+
+        my($field);
+        foreach $field (@Relationship_Fields) {
+            if (defined($info->{$field})) {
+                print $tmpfile_handle "${field}: $info->{$field}\n";
+            }
+        }
+
+        # And now, some stuff we can grab out of the parsed changes
+        # data far more easily than anywhere else.
+
+        print $tmpfile_handle "Filename: $pool_base/$pool/$file\n";
+
+        print $tmpfile_handle "Size: $files[$marker]->{'Size'}\n";
+        print $tmpfile_handle "MD5sum: $files[$marker]->{'MD5Sum'}\n";
+
+        print $tmpfile_handle "Description: $info->{'Description'}";
 
         print $tmpfile_handle "\n";
     }
@@ -1117,7 +1168,8 @@ sub Generate_Source {
     print $tmpfile_handle 'Architecture: ';
     print $tmpfile_handle join(' ', @{$dsc_data->{'Architecture'}}) . "\n";
 
-    print $tmpfile_handle "Standards-Version: $dsc_data->{'Standards-Version'}\n";
+    print $tmpfile_handle "Standards-Version: $dsc_data->{'Standards-Version'}\n"
+      if  exists $dsc_data->{'Standards-Version'};
     print $tmpfile_handle "Format: $dsc_data->{'Format'}\n";
     print $tmpfile_handle "Directory: " .  join('/',
         (PoolBasePath(), PoolDir($source, $section), $source)) . "\n";
@@ -1182,7 +1234,7 @@ sub Dpkg_Info {
     return \%result;
 }
 
-# Install_List($archive, $component, $architecture, $listfile, $gzfile)
+# Install_List($archive, $component, $architecture, $listfile, @zfiles)
 #
 # Installs a distribution list file (from Generate_List), along with an
 # optional gzipped version of the same file (if $gzfile is defined).
@@ -1192,7 +1244,7 @@ sub Install_List {
     use DebPool::Config qw(:vars);
     use DebPool::Dirs qw(:functions);
 
-    my($archive, $component, $architecture, $listfile, $gzfile) = @_;
+    my($archive, $component, $architecture, $listfile, @zfiles) = @_;
 
     my($dists_file_mode) = $Options{'dists_file_mode'};
     my($inst_file) = "$Options{'dists_dir'}/";
@@ -1206,11 +1258,14 @@ sub Install_List {
         return 0;
     }
 
-    if (defined($gzfile) && !Move_File($gzfile, "${inst_file}.gz",
-            $dists_file_mode)) {
-        $Error = "Couldn't install gzipped distribution file '$gzfile' ";
-        $Error .= "to '${inst_file}.gz': ${DebPool::Util::Error}";
-        return 0;
+    foreach my $zfile (@zfiles) {
+	my ($ext) = $zfile =~ m{\.([^/]+)$};
+		if (!Move_File($zfile, "${inst_file}.${ext}",
+				$dists_file_mode)) {
+			$Error = "Couldn't install compressed distribution file '$zfile' ";
+			$Error .= "to '${inst_file}.${ext}': ${DebPool::Util::Error}";
+			return 0;
+		}
     }
 
     return 1;
