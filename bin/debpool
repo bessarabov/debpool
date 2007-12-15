@@ -111,12 +111,8 @@ if ($Options{'compress_dists_with_zlib'}) {
     push @compression_methods, new DebPool::Gzip;
 }
 if ($Options{'bzcompress_dists'}) {
-    if (eval{ require Compress::Bzip2; }) {
-        require DebPool::Bzip2; # Bzip2 interaction routines
-        push @compression_methods, new DebPool::Bzip2;
-    } else {
-        Log_Message("libcompress-bzip2-perl is required to use bzcompress_dists.", LOG_GENERAL, LOG_WARNING);
-    }
+    require DebPool::Bzip2; # Bzip2 interaction routines
+    push @compression_methods, new DebPool::Bzip2;
 }
 
 # Before we do anything else, let's find out if we need to act as a daemon,

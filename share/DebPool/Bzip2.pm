@@ -45,6 +45,11 @@ use warnings;
 
 use POSIX; # WEXITSTATUS
 
+# Needed for open2()
+
+use Fcntl;
+use IPC::Open2;
+
 ### Module setup
 
 BEGIN {
@@ -95,55 +100,57 @@ our($Error);
 
 sub Bzip2_File {
     use DebPool::Logging qw(:functions :facility :level);
-    use Compress::Bzip2;
 
     my($file) = @_;
 
     # Open a secure tempfile to write the compressed data into
 
-    my($tmpfile) = new File::Temp( SUFFIX => '.bz2' );
-    my $bz = bzopen($tmpfile, 'wb9');
-    if (!$bz) {
-        $Error = "Couldn't initialize compression library: " . $bzerrno;
-        return undef;
-    }	
+    my($tmpfile) = new File::Temp( SUFFIX => '.bz2', UNLINK => 0 );
 
     # Open the source file so that we have it available.
+
     if (!open(SOURCE, '<', $file)) {
         $Error = "Couldn't open source file '$file': $!";
         return undef;
     }
 
-    while (1) {
-	my $buffer;
-	my $bytesread = read SOURCE, $buffer, 4096;
-	if (!defined $bytesread) {
-	    $Error = "Error reading from '$file': $!";
-	    close SOURCE;
-	    return undef;
-	}
-	last if $bytesread == 0;
-	my $byteswritten = $bz->bzwrite($buffer);
-	if ($byteswritten < $bytesread) {
-	    $Error = "Error bzwriting to temporary file: " . $bz->bzerror;
-	    close SOURCE;
-	    return undef;
-	}
-    }
+    # We are go for main engine start
 
-	my $bzflush = $bz->bzflush(BZ_FINISH);
+    my(@args) = ('--best', '--force', '--stdout');
 
-	# BZ_OK and BZ_STREAM_END are ok
-    if (($bzflush != BZ_OK) && ($bzflush != BZ_STREAM_END)) {
-	$Error = "Error flushing compressed file: " . $bz->bzerror;
-	close SOURCE;
-	return undef;
+    my($bzip2_pid) = open2(*BZIP2_IN, *BZIP2_OUT, '/bin/bzip2', @args);
+
+    my($child_pid);
+    if ($child_pid = fork) { # In the parent
+        # Send all the data to Bzip2;
+
+        close(BZIP2_IN);
+        close($tmpfile);
+
+        print BZIP2_OUT <SOURCE>;
+        close(BZIP2_OUT);
+        close(SOURCE);
+
+        waitpid($child_pid, 0);
+        waitpid($bzip2_pid, 0);
+    } else { # In the child - we hope
+        if (!defined($child_pid)) {
+            die "Couldn't fork: $!\n";
+        }
+
+        # Read back the results, and print them into the tempfile.
+
+        close(BZIP2_OUT);
+        close(SOURCE);
+
+        print $tmpfile <BZIP2_IN>;
+        close(BZIP2_IN);
+        close($tmpfile);
+
+        exit(0);
     }
 
     # And we're done
-    close SOURCE;
-    $bz->bzclose;
-    $tmpfile->unlink_on_destroy(0);
     return $tmpfile->filename;
 }
 

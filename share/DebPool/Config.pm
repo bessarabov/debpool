@@ -540,8 +540,7 @@ $OptionDefs{'compress_dists_with_zlib'} = 'compress_dists_with_zlib!';
 =item B<bzcompress_dists> = I<boolean>
 
 This determines whether or not compressed versions of the distribution
-files (Packages.gz, Sources.gz) are generated in bzip2. Note that enabling
-this introduces a dependancy on libcompress-bzip2-perl.
+files (Packages.gz, Sources.gz) are generated in bzip2.
 
 =cut
 
