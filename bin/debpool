@@ -522,6 +522,25 @@ ARCH_LOOP:
                 push @zfiles, $zfile;
             }
 
+            # Install {Packages,Sources}{,.gz}
+
+            if (!Install_List(@triple, $file, @zfiles)) {
+
+                my($msg) = "Couldn't install distribution files for ";
+                $msg .= "$dist/$section/${arch}: " . $DebPool::Packages::Error;
+                Log_Message($msg, LOG_GENERAL, LOG_ERROR);
+
+                if (-e $file) {
+                    unlink($file);
+                }
+
+                foreach (@zfiles) {
+                    unlink if -e;
+                }
+
+                next;
+            }
+
             # If we're doing Release files, now is the time for triples.
 
             my($relfile);
@@ -562,33 +581,6 @@ ARCH_LOOP:
                         next;
                     }
                 }
-            }
-
-            # Install {Packages,Sources}{,.gz}
-
-            if (!Install_List(@triple, $file, @zfiles)) {
-
-                my($msg) = "Couldn't install distribution files for ";
-                $msg .= "$dist/$section/${arch}: " . $DebPool::Packages::Error;
-                Log_Message($msg, LOG_GENERAL, LOG_ERROR);
-
-                if (-e $file) {
-                    unlink($file);
-                }
-
-                foreach (@zfiles) {
-                    unlink if -e;
-                }
-
-                if (defined($relfile) && -e $relfile) {
-                    unlink($relfile);
-                }
-
-                if (defined($sigfile) && -e $sigfile) {
-                    unlink($sigfile);
-                }
-
-                next;
             }
 
             # Install Release{,.gpg}

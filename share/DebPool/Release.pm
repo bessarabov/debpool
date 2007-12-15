@@ -49,7 +49,7 @@ use File::Temp qw(tempfile);
 # We need the Digest modules so that we can calculate the proper checksums.
 
 use Digest::MD5;
-use Digest::SHA1;
+use Digest::SHA;
 
 ### Module setup
 
@@ -167,13 +167,15 @@ sub Generate_Release_Triple {
         # Now calculate the checksums and put them into the hashes.
 
         my($md5) = Digest::MD5::md5_hex(@filetext);
-        my($sha1) = Digest::SHA1::sha1_hex(@filetext);
+        my($sha1) = Digest::SHA::sha1_hex(@filetext);
+        my($sha256) = Digest::SHA::sha256_hex(@filetext);
 
         push @Checksums, {
             'File' => $ck_file,
             'Size' => $size,
             'MD5' => $md5,
             'SHA1' => $sha1,
+            'SHA256' => $sha256,
         };
     }
 
@@ -208,6 +210,12 @@ sub Generate_Release_Triple {
     print $tmpfile_handle "SHA1:\n";
     foreach my $checksum (@Checksums) {
         printf $tmpfile_handle " %s %8d %s\n", $checksum->{'SHA1'},
+            $checksum->{'Size'}, $checksum->{'File'};
+    }
+
+    print $tmpfile_handle "SHA256:\n";
+    foreach my $checksum (@Checksums) {
+        printf $tmpfile_handle " %s %8d %s\n", $checksum->{'SHA256'},
             $checksum->{'Size'}, $checksum->{'File'};
     }
 
@@ -260,13 +268,15 @@ sub Generate_Release_Dist {
         # Now calculate the checksums and put them into the hashes.
     
         my($md5) = Digest::MD5::md5_hex(@filetext);
-        my($sha1) = Digest::SHA1::sha1_hex(@filetext);
+        my($sha1) = Digest::SHA::sha1_hex(@filetext);
+        my($sha256) = Digest::SHA::sha256_hex(@filetext);
     
         push @Checksums, {
             'File' => $file,
             'Size' => $size,
             'MD5' => $md5,
             'SHA1' => $sha1,
+            'SHA256' => $sha256,
         };
     }
 
@@ -300,6 +310,12 @@ sub Generate_Release_Dist {
     print $tmpfile_handle "SHA1:\n";
     foreach $file (@Checksums) {
         printf $tmpfile_handle " %s %8d %s\n", $file->{'SHA1'},
+            $file->{'Size'}, $file->{'File'};
+    }
+
+    print $tmpfile_handle "SHA256:\n";
+    foreach $file (@Checksums) {
+        printf $tmpfile_handle " %s %8d %s\n", $file->{'SHA256'},
             $file->{'Size'}, $file->{'File'};
     }
 
