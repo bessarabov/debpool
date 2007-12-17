@@ -39,8 +39,10 @@ debpool (0.2.4~0unreleased) expiremental; urgency=low
     + Closes: #415447
   * Added inotify2 support. Closes: #415272
     + Thanks Magnus Holmgren.
+  * Allow Release files to generate SHA256 checksums as well.
+    + Needs libdigest-sha-perl so changed debian/control accordingly.
 
- -- Andres Mejia <mcitadel@gmail.com>  Thu, 13 Dec 2007 00:12:08 -0500
+ -- Andres Mejia <mcitadel@gmail.com>  Mon, 17 Dec 2007 14:24:54 -0500
 
 debpool (0.2.3) experimental; urgency=low
 
