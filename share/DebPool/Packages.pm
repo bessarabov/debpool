@@ -174,7 +174,7 @@ sub Allow_Version {
     use DebPool::DB qw(:functions);
     use DebPool::Logging qw(:functions :facility :level);
 
-    my($package, $version, $distribution) = @_;
+    my($package, $version, $distribution, $arch) = @_;
     my($old_version) = Get_Version($distribution, $package, 'meta');
 
     # If we permit rollback, any version is valid.
@@ -186,6 +186,26 @@ sub Allow_Version {
     # If we don't have an old version, anything is acceptable.
 
     if (!defined($old_version)) {
+        return 1;
+    }
+
+    if ($version eq $old_version) {
+        my (%count, @duplicate_arches);
+        my @old_archs = Get_Archs($distribution, $package);
+        foreach (@old_archs, @$arch) {
+            if (++$count{$_} > 1) {
+                push @duplicate_arches, $_;
+            }
+        }
+        if (@duplicate_arches) {
+            my($msg) = "Version comparison for '$package': ";
+            $msg .= "proposed version for $distribution ($version) ";
+            $msg .= "is same as current version and the following ";
+            $msg .= "architectures already exist: ";
+            $msg .= join ', ', @duplicate_arches;
+            Log_Message($msg, LOG_GENERAL, LOG_DEBUG);
+            return 0;
+        }
         return 1;
     }
 

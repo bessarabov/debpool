@@ -13,6 +13,10 @@ debpool (0.2.4~0unreleased) expiremental; urgency=low
   * Fixed problem with binary only uploads. Closes: #322593
     + Also fixed problem with source only uploads and binary only uploads
       without binary-all packages.
+    + Packages should be rejected if dsc file is at a different revision for
+      binary only uploads.
+    + Packages should be rejected if an architecture has a package with the
+      same version. Thanks Magnus Holmgren.
   * Added fix to keep pool tree minimized. Thanks Magnus Holmgren.
     + Closes: #350503
   * Fixed problem with extracting information from wrong deb file.

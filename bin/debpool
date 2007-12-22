@@ -385,7 +385,32 @@ foreach $changefile (@changefiles) {
                 last; # Don't check other files, we already failed
             }
         }
-    }
+    } else { # Assuming a binary only upload
+		# The dsc file should be uploaded
+		my($section) = Guess_Section($changes_data);
+		my($pkg_pooldir) = join('/',
+			($Options{'pool_dir'}, PoolDir($package, $section),
+			$package));
+		my $dsc_check = "$pkg_pooldir/$dscfile";
+		if ( ! -e $dsc_check ) {
+			Reject_Package($changefile, $changes_data);
+
+            my($msg) = "Attempted to do a binary only upload but the ";
+			$msg .= "source information for this package has not been ";
+			$msg .= "uploaded.";
+            Log_Message($msg, LOG_REJECT, LOG_ERROR);
+
+            $rejected = 1;
+            last; # Don't check other files, we just rejected
+		}
+		foreach $filehr (@{$changes_data->{'Files'}}) {
+			my($file) = $filehr->{'Filename'};
+			if (!(Verify_MD5($file, $filehr->{'MD5Sum'}))) {
+                $valid = undef;
+                last; # Don't check other files, we failed
+            }
+		}
+	} # TODO: Will this work for a binNMU?
 
     next if ($rejected); # Reject message already logged, go to next package.
 
@@ -420,7 +445,7 @@ foreach $changefile (@changefiles) {
             next;
         }
 
-        my($allow) = Allow_Version($package, $version, $realdist);
+        my($allow) = Allow_Version($package, $version, $realdist, $changes_data->{'Architecture'});
 
         if (!defined($allow)) {
             Log_Message("Version check for $version failed: " .

@@ -67,12 +67,13 @@ BEGIN {
         &Open_Databases
         &Close_Databases
         &Get_Version
+        &Get_Archs
         &Set_Versions
     );
 
     %EXPORT_TAGS = (
         'functions' => [qw(&Open_Databases &Close_Databases &Get_Version
-                           &Set_Versions)],
+                           &Get_Archs &Set_Versions)],
         'vars' => [qw(%ComponentDB)],
     );
 }
@@ -181,45 +182,60 @@ sub Close_Databases {
 sub Get_Version {
     my($dist, $source, $package) = @_;
 
-    my($temp) = $VersionDB{$dist}->{$source};
-    if (!defined($temp)) { return undef; }
+    return undef unless defined $VersionDB{$dist}{$source};
+    my($version, $binlist, $archlist) = split(/\|/, $VersionDB{$dist}{$source});
 
     # Versions prior to 0.2.2 had only one entry, which is the source
     # version; since this is the same as the binary version on the vast
     # majority of packages, fake an answer. This works because hash entries
     # are guaranteed to be non-empty.
 
-    if ($temp !~ m/\|/) {
-        return $temp;
+    if (!defined $binlist) {
+        return $version;
     }
 
     if ('meta' eq $package) {
-        $temp =~ s/\|.*//;
-        return $temp;
+        return $version;
     } elsif ('source' eq $package) {
-        return $VersionDB{$dist}->{"source_${source}"};
+        return $VersionDB{$dist}{"source_${source}"};
     } else {
-        return $VersionDB{$dist}->{"binary_${source}_${package}"};
+        return $VersionDB{$dist}{"binary_${source}_${package}"};
     }
 }
 
-# Set_Versions($dist, $source, $file_arrayref
+sub Get_Archs {
+    my($dist, $source) = @_;
+
+    return undef unless defined $VersionDB{$dist}{$source};
+    my($version, $binlist, $archlist) = split(/\|/, $VersionDB{$dist}{$source});
+    return split /,/, $archlist if defined $archlist;
+    return @{$Options{'archs'}};
+}
+
+# Set_Versions($dist, $source, $file_arrayref)
 
 sub Set_Versions {
     my($dist, $source, $meta_version, $file_arrayref) = @_;
+    my (%entries, %archs);
+    my($oldversion, $oldbinlist, $archlist) =
+        split(/\|/, $VersionDB{$dist}{$source}) if defined $VersionDB{$dist}{$source};
 
-    my($oldbinlist) = $VersionDB{$dist}->{$source};
-    if (defined($oldbinlist) && ($oldbinlist =~ m/\|/)) { # 0.2.2 or later
-        $oldbinlist =~ s/.*\|//; # Strip meta version
+    if (defined($oldbinlist)) {
         my(@oldbins) = split(/,/,$oldbinlist);
-
-        my($oldbin);
-        foreach $oldbin (@oldbins) {
-            $VersionDB{$dist}->{"binary_${source}_${oldbin}"} = undef;
+        if ($oldversion ne $meta_version) {
+            # 0.2.2 or later
+            foreach my $oldbin (@oldbins) {
+                delete $VersionDB{$dist}{"binary_${source}_${oldbin}"};
+            }
+            delete $VersionDB{$dist}{"source_${source}"};
+            delete $VersionDB{$dist}{"${source}"};
         }
-
-        $VersionDB{$dist}->{"source_${source}"} = undef;
-        $VersionDB{$dist}->{"${source}"} = undef;
+        else {
+            $entries{$_} = 1 foreach @oldbins;
+            if (defined $archlist) {
+                $archs{$_} = 1 foreach split /,/, $archlist;
+            }
+        }
     }
 
     # Walk through each file looking for version data. Note that only the
@@ -230,27 +246,27 @@ sub Set_Versions {
     # FIXME: Do udeb files have different versions from deb files?
 
     my(@files) = @{$file_arrayref};
-    my(@entries) = ();
 
-    my($hashref);
-    foreach $hashref (@files) {
+    foreach my $hashref (@files) {
         my($filename) = $hashref->{'Filename'};
 
-        if ($filename =~ m/^([^_]+)_([^_]+)_.+\.u?deb/) {
-            my($package) = $1;
-            my($version) = $2;
+        if ($filename =~ m/^([^_]+)_([^_]+)_(.+)\.u?deb/) {
+            my($package, $version, $arch) = ($1, $2, $3);
 
             $VersionDB{$dist}->{"binary_${source}_${package}"} = $version;
-            push(@entries, $package);
+            $entries{$package} = 1;
+            $archs{$arch} = 1;
         } elsif ($filename =~ m/^[^_]+_([^_]+)\.dsc/) {
             my($version) = $1;
 
             $VersionDB{$dist}->{"source_${source}"} = $version;
-            push(@entries, 'source');
+            $archs{source} = 1;
         } # else skip
     }
 
-    $VersionDB{$dist}->{$source} = "${meta_version}|" . join(',', @entries);
+    $VersionDB{$dist}{$source} = join('|', ${meta_version},
+                                      join(',', keys %entries),
+                                      join(',', keys %archs));
 }
 
 END {}
