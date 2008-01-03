@@ -1,6 +1,7 @@
-debpool (0.2.4~0unreleased) expiremental; urgency=low
+debpool (0.2.4~unreleased0) expiremental; urgency=low
 
   [ Andres Mejia ]
+  * Added myself as an uploader.
   * Added udeb support. Thanks Free Ekanayaka. Closes: #245526
   * Fixed problem with packages with multiple '+' characters. Fixes part of bug
     322593.
@@ -45,8 +46,11 @@ debpool (0.2.4~0unreleased) expiremental; urgency=low
     + Thanks Magnus Holmgren.
   * Allow Release files to generate SHA256 checksums as well.
     + Needs libdigest-sha-perl so changed debian/control accordingly.
+  * Fixed problem where reuploading an orig tarball would be rejected
+    even with the 'rollback' option set.
+  * Bumped Standards-Version to 3.7.3.
 
- -- Andres Mejia <mcitadel@gmail.com>  Mon, 17 Dec 2007 14:24:54 -0500
+ -- Andres Mejia <mcitadel@gmail.com>  Thu, 03 Jan 2008 00:58:20 -0500
 
 debpool (0.2.3) experimental; urgency=low
 
