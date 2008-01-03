@@ -1,4 +1,4 @@
-debpool (0.2.4~unreleased0) expiremental; urgency=low
+debpool (0.2.4~unreleased0) experimental; urgency=low
 
   [ Andres Mejia ]
   * Added myself as an uploader.
@@ -49,6 +49,8 @@ debpool (0.2.4~unreleased0) expiremental; urgency=low
   * Fixed problem where reuploading an orig tarball would be rejected
     even with the 'rollback' option set.
   * Bumped Standards-Version to 3.7.3.
+    + Removed 'binary-arch' target in debian/rules to silence new lintian
+      warning.
 
  -- Andres Mejia <mcitadel@gmail.com>  Thu, 03 Jan 2008 00:58:20 -0500
 

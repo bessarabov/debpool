@@ -6,9 +6,6 @@
 build:
 	dh_testdir
 
-binary-arch:
-	@echo "No arch-dependant files to build"
-
 binary-indep: build
 	dh_testdir
 	dh_testroot
