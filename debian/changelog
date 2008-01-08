@@ -5,7 +5,6 @@ debpool (0.2.4~unreleased0) experimental; urgency=low
   * Added udeb support. Thanks Free Ekanayaka. Closes: #245526
   * Fixed problem with packages with multiple '+' characters. Fixes part of bug
     322593.
-  * Added instruction on optional use of GnuPG. Closes: #454100
   * Added Homepage and Vcs entries in control file. Closes: #453905
   * Changed debpool recommends leaving out libdigest-md5-perl. Closes: #454102
   * Fixed problem with missing newlines in .package files.
