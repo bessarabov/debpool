@@ -699,9 +699,8 @@ Default value: [ 'experimental' ]
 
 =cut
 
-$Options{'release_noauto'} = [
-    'experimental',
-];
+$Options{'release_noauto'} = [ 'experimental' ];
+$OptionDefs{'release_noauto'} = 'release_noauto=s@';
 
 =back
 
@@ -792,11 +791,11 @@ $OptionDefs{'gpg_bin'} = 'gpg_bin=s';
 
 This is used to specify the GnuPG homedir (via the --homedir option).
 
-Default value: '/home/user/.gnupg'
+Default value: $ENV{'HOME'}.'/.gnupg'
 
 =cut
 
-$Options{'gpg_home'} = '/home/user/.gnupg';
+$Options{'gpg_home'} = $ENV{'HOME'}.'/.gnupg';
 $OptionDefs{'gpg_home'} = 'gpg_home=s';
 
 =item B<gpg_keyrings> = I<array of keyring filenames>
@@ -834,13 +833,13 @@ This specifies the name of the file from which we read the GnuPG passphrase
 for the key listed in gpg_sign_key. Note that it will have no effect unless
 'sign_release' is true and 'gpg_sign_key' is defined.
 
-Default value: '/home/user/.gnupg/passphrase';
+Default value: $ENV{'HOME'}.'/.gnupg/passphrase';
 
 See also: sign_release, gpg_sign_key
 
 =cut
 
-$Options{'gpg_passfile'} = '/home/user/.gnupg/passphrase';
+$Options{'gpg_passfile'} = $ENV{'HOME'}.'/.gnupg/passphrase';
 $OptionDefs{'gpg_passfile'} = 'gpg_passfile=s';
 
 =back
@@ -857,9 +856,11 @@ If this option is defined, logging output will be sent to the filename
 specified. Note that an undefined value is considered an explicit request
 to log nothing.
 
+Default value: $ENV{'HOME'}.'/.debpool/DebPool.log';
+
 =cut
 
-$Options{'log_file'} = '/home/user/.debpool/DebPool.log';
+$Options{'log_file'} = $ENV{'HOME'}.'/.debpool/DebPool.log';
 $OptionDefs{'log_file'} = 'log_file=s';
 
 =head2 Misc. configuration

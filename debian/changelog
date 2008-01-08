@@ -51,8 +51,11 @@ debpool (0.2.4~unreleased0) experimental; urgency=low
   * Bumped Standards-Version to 3.7.3.
     + Removed 'binary-arch' target in debian/rules to silence new lintian
       warning.
+  * Fixed problem where 'release_noauto' could not be overridden.
+  * Use $ENV{'HOME'} instead of '/home/user' for specifying home directory
+    through environment variable in Config.pm.
 
- -- Andres Mejia <mcitadel@gmail.com>  Thu, 03 Jan 2008 00:58:20 -0500
+ -- Andres Mejia <mcitadel@gmail.com>  Tue, 08 Jan 2008 02:06:32 -0500
 
 debpool (0.2.3) experimental; urgency=low
 
