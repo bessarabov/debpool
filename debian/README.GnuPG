@@ -68,33 +68,3 @@ Basic instructions for setting up GnuPG:
    $Options{'gpg_sign_key'} to the key ID of your archive signing key.
    Note that this won't have any effect unless you also enable Release
    file generation (but it won't hurt anything, either).
-
-Optional setup of GnuPG under debpool directory.
-
-1. Make sure that the gnupg package is installed.
-
-2. Make a directory under debpool. (Let's assume you're naming the directory
-   "s3kr1t" like from the mini-dinstall package.)
-
-   sudo mkdir /var/cache/debpool/.s3kr1t
-
-3. Ensure that the newly created directory is under mode 0700.
-
-   sudo chmod 0700 /var/cache/debpool/.s3kr1t
-
-4. Export the GNUPGHOME variable used by gpg to point to the newly created
-   directory. This will make gpg use the directory specified for GNUPGHOME
-   instead of the default ~/.gnupg directory.
-
-   export GNUPGHOME=/var/cache/debpool/.s3kr1t
-
-5. Generate an archive signing key by using 'sudo gpg --gen-key', record the
-   passphrase in some text file (for example, under $GNUPGHOME/passphrase), and
-   make sure it's in mode 0600.
-
-6. Edit the appropriate Config.pm file (/etc/debpool/Config.pm or
-   ~/.debpool/Config.pm), set $Options{'sign_release'} to 1 and
-   $Options{'gpg_sign_key'} to the key ID of your archive signing key.
-   Note that this won't have any effect unless you also enable Release
-   file generation (but it won't hurt anything, either). Also, make sure to set
-   $Options{'gpg_home'} to point to the newly created directory.
