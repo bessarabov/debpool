@@ -28,8 +28,8 @@ debpool (0.2.4~unreleased0) experimental; urgency=low
   * Added init script for running debpool. Closes: #415639
     + Thanks Magnus Holmgren.
     + Also added option for debpool to print lockfile path.
-    + Also adding logs to /var/log/debpool.log.
     + init scripts needed slight modification to get them running with root.
+    + Scripts were rewritten to base them off of /etc/init.d/skeleton.
   * Fixed problem where debpool doesn't recover from power failure.
     + Closes: #412090
   * Fixed problem with debpool not reaping its gzip children. Closes: #415204
