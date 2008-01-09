@@ -43,6 +43,7 @@ debpool (0.2.4~unreleased0) experimental; urgency=low
     + Closes: #415447
   * Added inotify2 support. Closes: #415272
     + Thanks Magnus Holmgren.
+    + Needs liblinux-inotify2-perl so adding a Recommends.
   * Allow Release files to generate SHA256 checksums as well.
     + Needs libdigest-sha-perl so changed debian/control accordingly.
   * Fixed problem where reuploading an orig tarball would be rejected

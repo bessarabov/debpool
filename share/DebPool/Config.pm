@@ -899,7 +899,7 @@ $OptionDefs{'sleep'} = 'sleep=i';
 
 =item B<use_inotify> = I<boolean>
 
-Sets whether debpool should use inotify to monitor for incoming changes
+Sets whether debpool should use inotify to monitor for incoming changes.
 
 Default value: 0 (false)
 
