@@ -1,15 +1,15 @@
 #! /usr/bin/make -f
 
-# TODO: Auto-generate DebPool::Config (with pod2man, options:
-# --section=5 --name="DebPool::Config" --center="DebPool Configuration")
-
 build:
 	dh_testdir
+	mkdir debian/tmp
+	pod2man --name="DebPool::Config" --center="DebPool Configuration" \
+		--section=5  share/DebPool/Config.pm debian/tmp/DebPool::Config.5
+	touch build-stamp
 
 binary-indep: build
 	dh_testdir
 	dh_testroot
-
 	dh_installdirs -i
 	dh_install -i
 	dh_installdocs -i
@@ -18,12 +18,9 @@ binary-indep: build
 	dh_installman -i
 	dh_installinit -i
 	dh_installlogrotate -i
-
 	dh_perl -i
-
 	dh_compress -i
 	dh_fixperms -i
-
 	dh_md5sums -i
 	dh_gencontrol -i
 	dh_installdeb -i
@@ -34,7 +31,7 @@ binary: binary-indep
 clean:
 	dh_testdir
 	dh_testroot
-
+	[ ! -f build-stamp ] || rm build-stamp
 	dh_clean
 
 .PHONY: binary binary-arch binary-indep build clean
