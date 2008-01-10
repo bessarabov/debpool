@@ -59,6 +59,8 @@ debpool (0.2.4~unreleased0) experimental; urgency=low
   * Minor edit in description for DebPool::Config.
   * Changed copyright format, included myself in copyright.
   * Removed LICENSE file, as it was redundant to debian/copyright.
+  * Changed Maintainer to use debpool developer's email.
+    + Added Joel Aelwyn in Uploaders field.
 
  -- Andres Mejia <mcitadel@gmail.com>  Tue, 08 Jan 2008 02:06:32 -0500
 
