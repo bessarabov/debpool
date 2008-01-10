@@ -5,8 +5,10 @@ build:
 	[ -e build-stamp ] || \
 		mkdir debian/tmp && \
 		pod2man --name="DebPool::Config" \
-			--center="DebPool Configuration" --section=5 \
-			share/DebPool/Config.pm debian/tmp/DebPool::Config.5 && \
+			--center="DebPool Configuration" \
+			--section=5 \
+			share/DebPool/Config.pm \
+			debian/tmp/DebPool::Config.5 && \
 		touch build-stamp
 
 binary-indep: build
@@ -28,7 +30,9 @@ binary-indep: build
 	dh_installdeb -i
 	dh_builddeb -i
 
-binary: binary-indep
+binary-arch:
+
+binary: binary-indep binary-arch
 
 clean:
 	dh_testdir
