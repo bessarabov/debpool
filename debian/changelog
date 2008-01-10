@@ -54,8 +54,7 @@ debpool (0.2.4~unreleased0) experimental; urgency=low
   * Fixed problem where 'release_noauto' could not be overridden.
   * Use $ENV{'HOME'} instead of '/home/user' for specifying home directory
     through environment variable in Config.pm.
-  * Autogenerate man page for DebPool::Config.
-  * Maintain debpool man page in debian directory.
+  * Autogenerate man page for DebPool::Config during build.
 
  -- Andres Mejia <mcitadel@gmail.com>  Tue, 08 Jan 2008 02:06:32 -0500
 
