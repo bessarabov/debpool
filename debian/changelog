@@ -75,6 +75,7 @@ debpool (0.2.4~unreleased0) experimental; urgency=low
     + Also makes gpg_home and gpg_sign_key options optional.
     + Temp::File used to automatically unlink in case of any errors.
     + Thanks Magnus Holmgren.
+  * Update example Config.pm.
 
  -- Andres Mejia <mcitadel@gmail.com>  Thu, 10 Jan 2008 01:26:13 -0500
 

@@ -5,7 +5,8 @@ package DebPool::Config;
 # A DebPool::Config file is a well-formed Perl module; it declares a
 # package namespace of 'DebPool::Config', contains a definition of exactly
 # one hash named 'Options', and declares a true value at the end of the
-# file.
+# file. See the DebPool::Config(5) man page for more information on the
+# available options.
 
 # File/Directory configuration
 #
