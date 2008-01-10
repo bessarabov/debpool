@@ -2,10 +2,12 @@
 
 build:
 	dh_testdir
-	[ -d debian/tmp ] || mkdir debian/tmp
-	pod2man --name="DebPool::Config" --center="DebPool Configuration" \
-		--section=5  share/DebPool/Config.pm debian/tmp/DebPool::Config.5
-	touch build-stamp
+	[ -e build-stamp ] || \
+		mkdir debian/tmp && \
+		pod2man --name="DebPool::Config" \
+			--center="DebPool Configuration" --section=5 \
+			share/DebPool/Config.pm debian/tmp/DebPool::Config.5 && \
+		touch build-stamp
 
 binary-indep: build
 	dh_testdir
