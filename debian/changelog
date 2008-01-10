@@ -69,6 +69,7 @@ debpool (0.2.4~unreleased0) experimental; urgency=low
   * Fixed wrong option used in debpool. Closes: #368554
     + Changed require_sigs to require_sigs_meta.
     + Thanks Andreas Pakulat.
+  * State in manpage the require_sigs_debs does nothing. Closes: #368555
 
  -- Andres Mejia <mcitadel@gmail.com>  Thu, 10 Jan 2008 01:26:13 -0500
 

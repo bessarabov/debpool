@@ -737,6 +737,11 @@ are GPG-signed with a recognized key found one of the keyrings listed
 in 'gpg_keyrings'. These can be signed with the tools in the 'debsigs'
 package.
 
+Note that this option currently does nothing. It may be
+implemented in a future version of debpool. However, it's also possible
+that this option will be removed entirely as there seems to be
+little support for signed .deb files in Debian.
+
 Default value: 0 (false)
 
 See also: gpg_keyrings
