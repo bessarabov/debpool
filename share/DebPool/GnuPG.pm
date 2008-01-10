@@ -174,7 +174,7 @@ sub Sign_Release {
     my(@args) = ('--batch', '--no-tty', '--detach-sign', '--armor', '--output=-');
     push(@args, '--homedir', $Options{'gpg_home'}) if defined $Options{'gpg_home'};
     push(@args, '--default-key', $Options{'gpg_sign_key'}) if defined $Options{'gpg_sign_key'};
-    push(@args, '--passphrase-file', $Options{'gpg_passfile'}) if defined $Options{'gpg_passfile'};
+    push(@args, '--passphrase-fd=0', '--passphrase-file', $Options{'gpg_passfile'}) if defined $Options{'gpg_passfile'};
     push(@args, '--', $release_file);
 
     my($gnupg_pid) = open3(*DUMMY, ">&".fileno $tmpfile, *GPG_ERR, $Options{'gpg_bin'}, @args);
