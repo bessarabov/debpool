@@ -1,2 +1,2 @@
 debian/tmp/DebPool::Config.5
-debian/debpool.1
+man/man1/debpool.1
