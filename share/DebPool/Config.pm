@@ -541,20 +541,6 @@ Default value: 0 (false)
 $Options{'compress_dists'} = 0;
 $OptionDefs{'compress_dists'} = 'compress_dists!';
 
-=item B<compress_dists_with_zlib> = I<boolean>
-
-This determines whether or not compressed versions of the distribution
-files (Packages.gz, Sources.gz) are generated.in gzip using Compress::Zlib.
-Note that enabling this introduces a dependency on libcompress-zlib-perl.
-Enabling this option will override compress_dists.
-
-Default value: 0 (false)
-
-=cut
-
-$Options{'compress_dists_with_zlib'} = 0;
-$OptionDefs{'compress_dists_with_zlib'} = 'compress_dists_with_zlib!';
-
 =item B<bzcompress_dists> = I<boolean>
 
 This determines whether or not compressed versions of the distribution

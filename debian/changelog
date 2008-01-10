@@ -40,8 +40,8 @@ debpool (0.2.4~unreleased0) experimental; urgency=low
     + Closes: #455449
   * Have debpool handle bzip2 compression as well as gzip in dynamical fasion.
     + Thanks Magnus Holmgren.
-    + Still supporting Gzip interactions using gzip package.
-    + Added recommends of libcompress-zlib-perl.
+    + Compression interactions will be supported through gzip and bzip2
+      packages.
     + Closes: #415447
   * Added inotify2 support. Closes: #415272
     + Thanks Magnus Holmgren.

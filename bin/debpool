@@ -95,18 +95,8 @@ use DebPool::Signal qw(:functions :vars); # Handle signals
 
 my @compression_methods;
 
-# We should support the Gzip interaction routines with the gzip package as
-# it is of priority Required
-if ($Options{'compress_dists_with_zlib'}) {
-    if (eval{ require Compress::Zlib; }) {
-        require DebPool::Zlib_Gzip; # Gzip interaction routines
-        push @compression_methods, new DebPool::Zlib_Gzip;
-    } else {
-        require DebPool::Gzip;
-        push @compression_methods, new DebPool::Gzip; # Gzip interaction routines
-        Log_Message("libcompress-zlib-perl not found is required to use compress_dists_with_zlib. Falling back to gzip.", LOG_GENERAL, LOG_WARNING);
-    }
-} elsif ($Options{'compress_dists'}) {
+# Have support for multiple compression schemes in a dynamical fashion
+if ($Options{'compress_dists'}) {
     require DebPool::Gzip; # Gzip interaction routines
     push @compression_methods, new DebPool::Gzip;
 }
