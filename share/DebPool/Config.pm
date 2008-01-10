@@ -621,7 +621,7 @@ Default value:
 Example value:
 
 { 'unstable-hostname' => 'unstable',
-  'testing-hostname' => 'sarge', }
+  'testing-hostname' => 'lenny', }
 
 =cut
 
