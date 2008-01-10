@@ -277,7 +277,7 @@ foreach $changefile (@changefiles) {
     my($package) = $changes_data->{'Source'};
     my($version) = $changes_data->{'Version'};
 
-    if ($Options{'require_sigs'}) {
+    if ($Options{'require_sigs_meta'}) {
         # First, check the changefile signature
 
         if (!Check_Signature("$Options{'incoming_dir'}/$changefile")) {
