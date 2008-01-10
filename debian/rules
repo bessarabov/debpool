@@ -6,6 +6,7 @@ build:
 		mkdir debian/tmp && \
 		pod2man --name="DebPool::Config" \
 			--center="DebPool Configuration" \
+			--release="debpool v0.2.4" \
 			--section=5 \
 			share/DebPool/Config.pm \
 			debian/tmp/DebPool::Config.5 && \
