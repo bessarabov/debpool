@@ -40,6 +40,7 @@ debpool (0.2.4~unreleased0) experimental; urgency=low
   * Have debpool handle bzip2 compression as well as gzip in dynamical fasion.
     + Thanks Magnus Holmgren.
     + Still supporting Gzip interactions using gzip package.
+    + Added recommends of libcompress-zlib-perl.
     + Closes: #415447
   * Added inotify2 support. Closes: #415272
     + Thanks Magnus Holmgren.
@@ -51,10 +52,12 @@ debpool (0.2.4~unreleased0) experimental; urgency=low
   * Bumped Standards-Version to 3.7.3.
     + Removed 'binary-arch' target in debian/rules to silence new lintian
       warning.
-  * Fixed problem where 'release_noauto' could not be overridden.
   * Use $ENV{'HOME'} instead of '/home/user' for specifying home directory
     through environment variable in Config.pm.
   * Autogenerate man page for DebPool::Config during build.
+    + Fixed some grammatical errors in manpage.
+  * Fixed some minor issues with Config.pm where some options
+    could not be overridden.
   * Wrote a proper manpage for debpool.
   * Minor edit in description for DebPool::Config.
   * Changed copyright format, included myself in copyright.
@@ -62,7 +65,7 @@ debpool (0.2.4~unreleased0) experimental; urgency=low
   * Changed Maintainer to use debpool developer's email.
     + Added Joel Aelwyn in Uploaders field.
 
- -- Andres Mejia <mcitadel@gmail.com>  Tue, 08 Jan 2008 02:06:32 -0500
+ -- Andres Mejia <mcitadel@gmail.com>  Thu, 10 Jan 2008 01:26:13 -0500
 
 debpool (0.2.3) experimental; urgency=low
 
