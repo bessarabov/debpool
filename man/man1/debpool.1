@@ -37,9 +37,9 @@ value to be used. For example, to specify an archive directory to use, run:
 .I debpool
 .B --archive_dir /path/to/dir
 .P
-For an option that accepts multiple values, use the option and specify the
-list of values to be used. For example, to specify the architectures
-debpool will create a layout for, run:
+For an option that accepts multiple values (array type), use the option and
+specify the list of values to be used. For example, to specify the
+architectures debpool will create a layout for, run:
 .P
 .I debpool
 .B --archs i386 amd64 . . .
@@ -51,9 +51,9 @@ example with architectures, run:
 .I debpool
 .B --archs i386 --archs amd64 . . .
 .P
-For an option that uses hash values, use the option with a different hash
-value as many times as necessary. For example, to specify the distributions
-debpool should create a layout for, run:
+For an option that uses hash values (hash types), use the option with a
+different hash value as many times as necessary. For example, to specify
+the distributions debpool should create a layout for, run:
 .P
 .I debpool
 .B --dists unstable=sid --dists experimental=experimental . . .
