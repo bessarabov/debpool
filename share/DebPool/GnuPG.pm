@@ -44,12 +44,12 @@ use strict;
 use warnings;
 
 use POSIX; # WEXITSTATUS
-use File::Temp qw(tempfile);
+use File::Temp ();
 
-# We need these for open2()
+# We need these for open3()
 
 use Fcntl;
-use IPC::Open2;
+use IPC::Open3;
 
 ### Module setup
 
@@ -108,16 +108,15 @@ sub Check_Signature {
 
     my($file, $signature) = @_;
 
-    my(@args) = ("--homedir=$Options{'gpg_home'}");
-    push (@args, '--no-default-keyring', '--logger-fd=1');
+    my(@args) = ('--verify', '--no-default-keyring');
+    push(@args, '--homedir', $Options{'gpg_home'}) if defined $Options{'gpg_home'};
 
-    my($keyring);
-
-    foreach $keyring (@{$Options{'gpg_keyrings'}}) {
-        push(@args, "--keyring=$keyring");
+    foreach my $keyring (@{$Options{'gpg_keyrings'}}) {
+        push(@args, '--keyring', $keyring);
     }
-
-    push(@args, '--verify');
+    
+    push(@args, '--');  # Always a good idea, even if we're pretty sure we won't
+                        # get any file names starting with "--" in this program.
 
     if (defined($signature)) {
         push(@args, $signature);
@@ -125,25 +124,33 @@ sub Check_Signature {
 
     push(@args, $file);
 
-    my($pid) = IPC::Open2::open2(*GPG_IN, *GPG_OUT, $Options{'gpg_bin'}, @args);
+    my($pid) = open3(*GPG_IN, *GPG_OUT, *GPG_OUT, $Options{'gpg_bin'}, @args);
     close(GPG_IN); # No input
-    close(GPG_OUT); # Don't care about output, really, either
+    my @loglines = <GPG_OUT>;
 
     waitpid($pid,0); # No flags, just wait.
-    my($sysret) = WEXITSTATUS($?);
 
-    if (0 != $sysret) { # Failure
+    if ($?) { # Failure
+	foreach (@loglines) {
+	    Log_Message($_, LOG_GPG, LOG_DEBUG);
+	}
         my($msg) = "Failed signature check on '$file' ";
         if (defined($signature)) {
-            $msg .= "(signature file '$signature')";
+            $msg .= "(signature file '$signature'): ";
         } else {
-            $msg .= "(internal signature)";
+            $msg .= "(internal signature): ";
         }
+	if (WIFEXITED($?)) {
+	    $msg .= "gpg returned non-zero status " . WEXITSTATUS($?);
+	}
+	elsif (WIFSIGNALED($?)) {
+	    $msg .= "gpg died from signal " . WTERMSIG($?);
+	}
+	else {
+	    $msg .= "gpg terminated in an unknown way.";
+	}
         Log_Message($msg, LOG_GPG, LOG_WARNING);
-
-        return 0;
     }
-
     return 1;
 }
 
@@ -158,90 +165,43 @@ sub Sign_Release {
 
     my($release_file) = @_;
 
-    # Check that we have everything we need
-
-    if (!defined($Options{'gpg_sign_key'})) {
-        $Error = "No GPG signature key enabled";
-        return undef;
-    }
-
-    if (!defined($Options{'gpg_passfile'})) {
-        $Error = "No GPG passphrase file enabled";
-        return undef;
-    }
-
     # Open a secure tempfile to write the signature to
 
-    my($tmpfile_handle, $tmpfile_name) = tempfile();
-
-    # Open the Release file and grab the data from it
-
-    if (!open(RELEASE, '<', $release_file)) {
-        $Error = "Couldn't open Release file '$release_file': $!";
-        return undef;
-    }
-    my(@release_text) = <RELEASE>;
-    close(RELEASE);
-
-    # Open the passphrase file and grab the data from it
-
-    if (!open(PASS, '<', $Options{'gpg_passfile'})) {
-        $Error = "Couldn't open passphrase file '$Options{'gpg_passfile'}': $!";
-        return undef;
-    }
-    my($passphrase) = <PASS>; # This is only safe because we don't care.
-    close(PASS);
+    my($tmpfile) = new File::Temp;
 
     # We are go for main engine start
 
-    my(@args) = ("--homedir=$Options{'gpg_home'}");
-    push(@args, "--default-key=$Options{'gpg_sign_key'}");
-    push(@args, '--passphrase-fd=0', '--batch', '--no-tty', '--detach-sign');
-    push(@args, '--armor', '--output=-');
+    my(@args) = ('--batch', '--no-tty', '--detach-sign', '--armor', '--output=-');
+    push(@args, '--homedir', $Options{'gpg_home'}) if defined $Options{'gpg_home'};
+    push(@args, '--default-key', $Options{'gpg_sign_key'}) if defined $Options{'gpg_sign_key'};
+    push(@args, '--passphrase-file', $Options{'gpg_passfile'}) if defined $Options{'gpg_passfile'};
+    push(@args, '--', $release_file);
 
-    my($gnupg_pid) = IPC::Open2::open2(*GPG_IN, *GPG_OUT, $Options{'gpg_bin'}, @args);
+    my($gnupg_pid) = open3(*DUMMY, ">&".fileno $tmpfile, *GPG_ERR, $Options{'gpg_bin'}, @args);
+    close DUMMY;
+    my @loglines = <GPG_ERR>;
+    waitpid($gnupg_pid, 0);
 
-    my($child_pid);
-    my(@signature);
-    if ($child_pid = fork) { # In the parent
-        # Close filehandles used by the child.
-
-        close(GPG_IN);
-        close($tmpfile_handle);
-
-        # Send all the data to GnuPG
-
-        print GPG_OUT $passphrase;
-        print GPG_OUT @release_text;
-        close(GPG_OUT);
-
-        waitpid($child_pid, 0);
-    } else { # In the child - we hope
-        if (!defined($child_pid)) {
-            die "Couldn't fork: $!\n";
-        }
-
-        # Close filehandle used by the parent.
-
-        close(GPG_OUT);
-
-        # And read back the results
-
-        @signature = <GPG_IN>;
-        close(GPG_IN);
-
-        # Finally, print the results to the tempfile
-
-        print $tmpfile_handle @signature;
-        close($tmpfile_handle);
-
-        exit(0);
+    foreach (@loglines) {
+	Log_Message($_, LOG_GPG, $? ? LOG_ERROR : LOG_WARNING);
     }
 
+    if ($?) {
+	if (WIFEXITED($?)) {
+	    $Error = "gpg returned non-zero status " . WEXITSTATUS($?);
+	}
+	elsif (WIFSIGNALED($?)) {
+	    $Error = "gpg died from signal " . WTERMSIG($?);
+	}
+	else {
+	    $Error = "gpg terminated in an unknown way.";
+	}
+	return undef;
+    }
 
     # And we're done
-
-    return $tmpfile_name;
+    $tmpfile->unlink_on_destroy(0);
+    return $tmpfile->filename;
 }
 
 # Strip_GPG(@text)
