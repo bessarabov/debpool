@@ -66,8 +66,8 @@ option, which prevents any attempt at loading the default (system and user)
 config files.
 
 The config files in /etc/debpool and $HOME/.debpool are not required to be
-full Perl modules, though they must still declare a package namespace of
-'DebPool::Config' and return a true value.
+full Perl modules or to even exist. If they are used, they must still
+declare a package namespace of 'DebPool::Config' and return a true value.
 
 =cut
 

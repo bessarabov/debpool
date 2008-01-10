@@ -3,10 +3,11 @@
 .\" Man page for debpool
 .\"
 .\" Copyright 2003-2004 Joel Aelwyn
+.\" Copyright 2007-2008 Andres Mejia
 .\"
 .\" $Id: debpool.1 27 2004-11-07 03:06:59Z joel $
 .\"
-.TH debpool 1 "07 October 2003" "0.1.5" "Debian Pool Archive Manager"
+.TH debpool 1 "09 January 2008" "0.2.4" "Debian Pool Archive Manager"
 .SH NAME
 debpool \- pool-based Debian package archive manager
 .SH SYNOPSIS
@@ -20,27 +21,51 @@ debpool \- pool-based Debian package archive manager
 is a utility for managing pool-based archives of Debian packages. It
 can be run by individual users, and/or under a dedicated system user
 configuration.
-.SH EXAMPLES
-None
 .SH OVERVIEW
-None
-.SH DEFAULTS
-See the
-.BR DebPool::Config(5)
-manpage for details on configuration option defaults.
+This manual page describes how to specify options
+for debpool when running debpool through the command line.
+.SH USAGE
+For an option that enables/disables a feature for debpool (type boolean),
+simply use the option. For example, to enable daemon mode, run:
+.P
+.I debpool
+.B --daemon
+.P
+For an option used to assign a value, use the option and specify the
+value to be used. For example, to specify an archive directory to use, run:
+.P
+.I debpool
+.B --archive_dir /path/to/dir
+.P
+For an option that accepts multiple values, use the option and specify the
+list of values to be used. For example, to specify the architectures
+debpool will create a layout for, run:
+.P
+.I debpool
+.B --archs i386 amd64 . . .
+.P
+Assigning multiple values for an option may also be done by using the option
+with a different value multiple times. For example, using the
+example with architectures, run:
+.P
+.I debpool
+.B --archs i386 --archs amd64 . . .
+.P
+For an option that uses hash values, use the option with a different hash
+value as many times as necessary. For example, to specify the distributions
+debpool should create a layout for, run:
+.P
+.I debpool
+.B --dists unstable=sid --dists experimental=experimental . . .
+.P
 .SH OPTIONS
 See the
 .BR DebPool::Config(5)
 manpage for details on all configuration options.
-.SH "EXIT STATUS"
-.TP
-.B 0
-Successful program execution
-.TP
-.B 1
-Failure of any kind
-.SH ENVIRONMENT
-Nothing useful
+.SH DEFAULTS
+See the
+.BR DebPool::Config(5)
+manpage for details on configuration option defaults.
 .SH FILES
 .TP
 .I /usr/share/debpool/perl5/DebPool/Config.pm
@@ -51,10 +76,14 @@ System defaults file.
 .TP
 .I $HOME/.debpool/Config.pm
 User defaults file.
+.SH BUGS
+Please submit any bugs relating to debpool to the Debian Bug Tracking System.
 .SH SEE ALSO
 .BR DebPool::Config(5)
-.SH BUGS
-The entire manpage sucks, because the author hasn't taken the time
-to make it look nicer, and most of the important information really
-lives in the pod2man output for the configuration file (also known as
-DebPool::Config(5)).
+.br
+.BR Getopt::Long(3perl)
+.SH AUTHORS
+Copyright (c) Andres Mejia
+.br
+This manual page was writting for the Debian project, but may be used by
+others.

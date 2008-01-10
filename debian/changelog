@@ -55,6 +55,8 @@ debpool (0.2.4~unreleased0) experimental; urgency=low
   * Use $ENV{'HOME'} instead of '/home/user' for specifying home directory
     through environment variable in Config.pm.
   * Autogenerate man page for DebPool::Config during build.
+  * Wrote a proper manpage for debpool.
+  * Minor edit in description for DebPool::Config.
 
  -- Andres Mejia <mcitadel@gmail.com>  Tue, 08 Jan 2008 02:06:32 -0500
 
