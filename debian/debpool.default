@@ -13,7 +13,7 @@ OPTIONS=""
 DEBPOOL_USER=""
 
 # Specify a path for the log file
-LOGFILE="/var/log/debpool/$NAME.log"
+LOGFILE="/var/log/$NAME.log"
 
 # Specify a path for the lock file
-LOCKFILE="/var/run/debpool/$NAME.pid"
+LOCKFILE="/var/run/$NAME.pid"
