@@ -216,8 +216,6 @@ sub Create_Tree {
 #
 # Creates $directory with $mode. Returns 0 and sets $Error on failure, or
 # 1 on success.
-#
-# Internal support function for Create_Tree
 
 sub Tree_Mkdir {
     my($dir, $mode) = @_;

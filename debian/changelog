@@ -18,6 +18,7 @@ debpool (0.2.4~unreleased0) experimental; urgency=low
     + Packages should be rejected if an architecture has a package with the
       same version. Thanks Magnus Holmgren.
   * Added fix to keep pool tree minimized. Thanks Magnus Holmgren.
+    + Updated comments for Tree_Mkdir() method.
     + Closes: #350503
   * Fixed problem with extracting information from wrong deb file.
     + Thanks Julien Valroff. Closes: #310320
