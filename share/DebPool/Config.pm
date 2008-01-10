@@ -872,11 +872,11 @@ If this option is defined, logging output will be sent to the filename
 specified. Note that an undefined value is considered an explicit request
 to log nothing.
 
-Default value: $ENV{'HOME'}.'/.debpool/DebPool.log';
+Default value: $ENV{'HOME'}.'/.debpool/debpool.log';
 
 =cut
 
-$Options{'log_file'} = $ENV{'HOME'}.'/.debpool/DebPool.log';
+$Options{'log_file'} = $ENV{'HOME'}.'/.debpool/debpool.log';
 $OptionDefs{'log_file'} = 'log_file=s';
 
 =head2 Misc. configuration
