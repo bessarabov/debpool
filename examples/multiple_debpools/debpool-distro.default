@@ -1,0 +1,19 @@
+# Configuration file for debpool init script. This is a shell script
+# sourced from /etc/init.d/debpool
+
+# Change to anything except "0" to enable running debpool as a daemon.
+ENABLED="0"
+
+# Parameters passed to debpool. See DebPool::Config(5). You don't have
+# to specify --daemon.
+OPTIONS="--config /etc/debpool/$DISTRO-Config.pm"
+
+# User or user:group to run debpool as. If you leave it empty, debpool
+# will run as root.
+DEBPOOL_USER=""
+
+# Specify a path for the log file
+LOGFILE="/var/log/$NAME-$DISTRO.log"
+
+# Specify a path for the lock file
+LOCKFILE="/var/run/$NAME-$DISTRO.pid"

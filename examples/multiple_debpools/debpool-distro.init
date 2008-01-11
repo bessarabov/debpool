@@ -1,0 +1,190 @@
+#!/bin/sh
+#
+### BEGIN INIT INFO
+# Provides:        debpool
+# Required-Start:  $local_fs $remote_fs
+# Required-Stop:   $local_fs $remote_fs
+# Default-Start:   2 3 4 5
+# Default-Stop:    0 1 6
+# Short-Description: Debian package archiver
+### END INIT INFO
+
+# This is an example init script for use with multiple debpool setups.
+# This example uses a debpool setup for Debian 'unstable'.
+
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+DESC="Debian package archiver"
+NAME=debpool
+DAEMON=/usr/bin/$NAME
+# DISTRO should be the only variable that will need its value changed
+# for use with multiple debpool setups.
+DISTRO=unstable
+SCRIPTNAME=/etc/init.d/$NAME-$DISTRO
+DEFAULT=/etc/default/$NAME-$DISTRO
+
+# Exit if the package is not installed
+[ -x "$DAEMON" ] || exit 0
+
+# Read configuration variable file if it is present
+[ -r $DEFAULT ] && . $DEFAULT
+
+# Define LSB log_* functions.
+. /lib/lsb/init-functions
+
+# Check if daemon is enabled in default configuration
+if [ "$ENABLED" = "0" ]; then
+	test "$1" = "start" && \
+	{
+		log_warning_msg "$NAME: Not starting $DESC."
+		log_warning_msg "$NAME: Disabled in $DEFAULT."
+	}
+	exit 0
+fi
+
+# Run as root if DEBPOOL_USER not specified
+if [ ! $DEBPOOL_USER ]; then
+	DEBPOOL_USER=root
+fi
+
+# Check for an invalid user or one without a home directory
+eval USERHOME=~$DEBPOOL_USER
+if [ "${USERHOME#/}" = "${USERHOME}" ]; then
+	log_failure_msg "$NAME: The user '$DEBPOOL_USER' specified in $DEFAULT is invalid."
+	exit 1
+fi
+
+# Run as $DEBPOOL_USER if not running as root
+if [ "$DEBPOOL_USER" != "root" ]; then
+	CHUID="--chuid $DEBPOOL_USER"
+fi
+
+# If lock file specified, pass it to debpool with --lock_file
+# else try to determine lock file using Debpool::Config
+if [ "$LOCKFILE" ]; then
+	PIDFILE=$LOCKFILE
+	LOCKFILE="--lock_file $LOCKFILE"
+else
+	LOCKFILE=$(HOME=$USERHOME debpool --get_lock_path) || \
+		{
+			log_failure_msg "$NAME: could not determine lock file path."
+			exit 1
+		}
+	PIDFILE=$LOCKFILE
+	LOCKFILE="--lock_file $LOCKFILE"
+fi
+
+# If log file specified, pass it to debpool with --log_file option
+if [ "$LOGFILE" ]; then
+	LOGFILE="--log_file $LOGFILE"
+fi
+
+# Specify all options to use for debpool
+DAEMON_ARGS="--daemon $LOGFILE $LOCKFILE $OPTIONS"
+
+#
+# Function that starts the daemon/service
+#
+do_start()
+{
+	# Return
+	#   0 if daemon has been started
+	#   1 if daemon was already running
+	#   2 if daemon could not be started
+	start-stop-daemon --start --quiet --pidfile $PIDFILE \
+		--startas $DAEMON $CHUID --test > /dev/null || \
+		return 1
+	start-stop-daemon --start --quiet --pidfile $PIDFILE \
+		--startas $DAEMON $CHUID -- $DAEMON_ARGS || \
+		return 2
+}
+
+#
+# Function that stops the daemon/service
+#
+do_stop()
+{
+	# Return
+	#   0 if daemon has been stopped
+	#   1 if daemon was already stopped
+	#   2 if daemon could not be stopped
+	#   other if a failure occurred
+	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE --name $NAME
+	RETVAL="$?"
+	[ "$RETVAL" = 2 ] && return 2
+	return "$RETVAL"
+}
+
+#
+# Function that sends a SIGHUP to the daemon/service
+#
+# TODO: Handling a proper reload of debpool will be supported someday.
+# Until then, debpool will just be stopped and restarted.
+#
+# do_reload() {
+# 	#
+# 	# If the daemon can reload its configuration without
+# 	# restarting (for example, when it is sent a SIGHUP),
+# 	# then implement that here.
+# 	#
+# 	start-stop-daemon --stop --signal 1 --quiet --pidfile $PIDFILE --name $NAME
+# 	return 0
+# }
+
+case "$1" in
+  start)
+	log_daemon_msg "Starting $DESC" "$NAME"
+	do_start
+	case "$?" in
+		0) log_end_msg 0 ;;
+		1) log_warning_msg "$DESC" "'$NAME'" "was already started" ;;
+		2) log_end_msg 1 ;;
+	esac
+	;;
+  stop)
+	log_daemon_msg "Stopping $DESC" "$NAME"
+	do_stop
+	case "$?" in
+		0) log_end_msg 0 ;;
+		1) log_warning_msg "$DESC" "'$NAME'" "was already stopped" ;;
+		2) log_end_msg 1 ;;
+	esac
+	;;
+  #reload|force-reload)
+	#
+	# If do_reload() is not implemented then leave this commented out
+	# and leave 'force-reload' as an alias for 'restart'.
+	#
+	#log_daemon_msg "Reloading $DESC" "$NAME"
+	#do_reload
+	#log_end_msg $?
+	#;;
+  restart|force-reload)
+	#
+	# If the "reload" option is implemented then remove the
+	# 'force-reload' alias
+	#
+	log_daemon_msg "Restarting $DESC" "$NAME"
+	do_stop
+	case "$?" in
+	  0|1)
+		do_start
+		case "$?" in
+			0) log_end_msg 0 ;;
+			1) log_end_msg 1 ;; # Old process is still running
+			*) log_end_msg 1 ;; # Failed to start
+		esac
+		;;
+	  *)
+	  	# Failed to stop
+		log_end_msg 1
+		;;
+	esac
+	;;
+  *)
+	#echo "Usage: $SCRIPTNAME {start|stop|restart|reload|force-reload}" >&2
+	echo "Usage: $SCRIPTNAME {start|stop|restart|force-reload}" >&2
+	exit 3
+	;;
+esac
+
+:

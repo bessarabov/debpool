@@ -1,0 +1,28 @@
+Users of other archive managers may have used a setup where they
+were allowed to upload packages of the same version for multiple
+distributions. The behavior in debpool however is that it will
+keep the last package that was uploaded (when the 'rollback'
+option is set) for a particular distribution, if it's using the same
+version from another upload to a different distribution.
+This is because of the nature of a pool based archive manager,
+where all files for a package are kept in the same directory.
+
+For anyone wanting to use debpool to host a repository of their
+packages for multiple distributions, one way to do this is to add
+a '~distro1' to the version of their package. For example, for a
+package 'foo-1.0-1', the package can have its version set as
+'1.0-1~etch1' to specify that it's a package built for Debian etch.
+If a package gets accepted into Debian, the extra tag can be removed,
+the packages reuploaded, and any users of the repository will receive
+a notice that an update is available from the debpool repository.
+(See Debian Policy 5.6.12 on why/how this would work.)
+
+Another way to use debpool for packages built for different distros
+is to use different directories that will contain its own debpool
+setup. This can be useful for anyone who maintain packages for both
+Debian and another OS distribution (like Ubuntu). The example
+configuration file, init script, and default configuration file from
+this directory can be used for such a case. Rename the distro part of
+the files to the distro they'll be used for and change the variable
+used to set the distribution in the files to the distro they'll be used for.
+(The configuration file may need more modification.)
