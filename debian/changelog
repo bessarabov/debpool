@@ -70,7 +70,7 @@ debpool (0.2.4~unreleased0) experimental; urgency=low
   * Fixed wrong option used in debpool. Closes: #368554
     + Changed require_sigs to require_sigs_meta.
     + Thanks Andreas Pakulat.
-  * State in manpage the require_sigs_debs does nothing. Closes: #368555
+  * State in manpage that require_sigs_debs does nothing. Closes: #368555
   * Applied patch to allow debpool to use gpg-agent. Closes: #307895
     + Also makes gpg_home and gpg_sign_key options optional.
     + Temp::File used to automatically unlink in case of any errors.
