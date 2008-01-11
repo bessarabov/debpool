@@ -1,3 +1,5 @@
+Packages Built for Different Distributions
+--------------------------------------------------------------------------
 Users of other archive managers may have used a setup where they
 were allowed to upload packages of the same version for multiple
 distributions. The behavior in debpool however is that it will
