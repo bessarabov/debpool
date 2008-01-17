@@ -40,6 +40,7 @@ fi
 # Run as root if DEBPOOL_USER not specified
 if [ ! $DEBPOOL_USER ]; then
 	DEBPOOL_USER=root
+	DEBPOOL_GROUP=root
 fi
 
 # Check for an invalid user or one without a home directory
@@ -49,33 +50,34 @@ if [ "${USERHOME#/}" = "${USERHOME}" ]; then
 	exit 1
 fi
 
-# Run as $DEBPOOL_USER if not running as root
+# Run as $DEBPOOL_USER:$DEBPOOL_GROUP if not running as root
 if [ "$DEBPOOL_USER" != "root" ]; then
-	CHUID="--chuid $DEBPOOL_USER"
+	if [ -z "$DEBPOOL_GROUP" ]; then
+		DEBPOOL_GROUP="$DEBPOOL_USER"
+	fi
+	CHUID="--chuid $DEBPOOL_USER:$DEBPOOL_GROUP"
 fi
 
 # If lock file specified, pass it to debpool with --lock_file
 # else try to determine lock file using Debpool::Config
 if [ "$LOCKFILE" ]; then
-	PIDFILE=$LOCKFILE
-	LOCKFILE="--lock_file $LOCKFILE"
+	LOCKFILE_OPT="--lock_file $LOCKFILE"
 else
 	LOCKFILE=$(HOME=$USERHOME debpool --get_lock_path) || \
 		{
 			log_failure_msg "$NAME: could not determine lock file path."
 			exit 1
 		}
-	PIDFILE=$LOCKFILE
-	LOCKFILE="--lock_file $LOCKFILE"
+	LOCKFILE_OPT="--lock_file $LOCKFILE"
 fi
 
 # If log file specified, pass it to debpool with --log_file option
 if [ "$LOGFILE" ]; then
-	LOGFILE="--log_file $LOGFILE"
+	LOGFILE_OPT="--log_file $LOGFILE"
 fi
 
 # Specify all options to use for debpool
-DAEMON_ARGS="--daemon $LOGFILE $LOCKFILE $OPTIONS"
+DAEMON_ARGS="--daemon $LOGFILE_OPT $LOCKFILE_OPT $OPTIONS"
 
 #
 # Function that starts the daemon/service
@@ -86,10 +88,14 @@ do_start()
 	#   0 if daemon has been started
 	#   1 if daemon was already running
 	#   2 if daemon could not be started
-	start-stop-daemon --start --quiet --pidfile $PIDFILE \
+	touch $LOCKFILE
+	chown $DEBPOOL_USER:$DEBPOOL_GROUP $LOCKFILE
+	touch $LOGFILE
+	chown $DEBPOOL_USER:$DEBPOOL_GROUP $LOGFILE
+	start-stop-daemon --start --quiet --pidfile $LOCKFILE \
 		--startas $DAEMON $CHUID --test > /dev/null || \
 		return 1
-	start-stop-daemon --start --quiet --pidfile $PIDFILE \
+	start-stop-daemon --start --quiet --pidfile $LOCKFILE \
 		--startas $DAEMON $CHUID -- $DAEMON_ARGS || \
 		return 2
 }
@@ -104,9 +110,10 @@ do_stop()
 	#   1 if daemon was already stopped
 	#   2 if daemon could not be stopped
 	#   other if a failure occurred
-	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE --name $NAME
+	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $LOCKFILE --name $NAME
 	RETVAL="$?"
 	[ "$RETVAL" = 2 ] && return 2
+	[ ! -f $LOCKFILE ] || rm $LOCKFILE
 	return "$RETVAL"
 }
 
@@ -122,7 +129,7 @@ do_stop()
 # 	# restarting (for example, when it is sent a SIGHUP),
 # 	# then implement that here.
 # 	#
-# 	start-stop-daemon --stop --signal 1 --quiet --pidfile $PIDFILE --name $NAME
+# 	start-stop-daemon --stop --signal 1 --quiet --pidfile $LOCKFILE --name $NAME
 # 	return 0
 # }
 

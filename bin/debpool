@@ -108,32 +108,42 @@ if ($Options{'get_lock_path'}) {
 
 if (!sysopen(LOCK_FILE, $Options{'lock_file'}, O_WRONLY|O_CREAT|O_EXCL, 0644)) {
     my($msg) = "Couldn't obtain lockfile '$Options{'lock_file'}': ";
-
-    if (open(LOCK_FILE, '<', $Options{'lock_file'}) &&
-       (my($pid) = <LOCK_FILE>)) {
+    if (( ! -s $Options{'lock_file'} ) and
+       (open(LOCK_FILE, '>', $Options{'lock_file'}))) {
+        # Empty file found for lock file
+        print LOCK_FILE "$$\n";
+        close(LOCK_FILE);
+    } elsif (open(LOCK_FILE, '<', $Options{'lock_file'}) &&
+      (my($pid) = <LOCK_FILE>)) {
         chomp($pid);
         if (open(STAT_FILE, '<', "/proc/$pid/stat") &&
-            (my($stat) = <STAT_FILE>)) {
+           (my($stat) = <STAT_FILE>)) {
             if ($stat =~ m/debpool/) {
                 # debpool process was already started
                 $msg .= "debpool was already running with PID $pid\n";
                 close(LOCK_FILE);
                 close(STAT_FILE);
+                Log_Message($msg, LOG_GENERAL, LOG_ERROR);
                 die $msg;
             }
         } else {
-            # debpool wasn't running using the specified PID so remove
-            # the lock and create a new one
+            # debpool wasn't running using the specified PID so close
+            # the file and reopen it for overwriting.
             close(LOCK_FILE);
-            unlink $Options{'lock_file'};
-            sysopen(NEW_LOCK_FILE, $Options{'lock_file'},
-                O_WRONLY|O_CREAT|O_EXCL, 0644);
-            print NEW_LOCK_FILE "$$\n";
-            close(NEW_LOCK_FILE);
+            if (!open(LOCK_FILE, '>', $Options{'lock_file'})) {
+                $msg .= "debpool could not place new PID ";
+                $msg .= "in lock file.\n";
+                Log_Message($msg, LOG_GENERAL, LOG_ERROR);
+                die $msg;
+            }
+            print LOCK_FILE "$$\n";
+            close(LOCK_FILE);
         }
     } else {
         # Could not read PID from lockfile
         $msg .= "(unable to read PID)\n";
+        Log_Message($msg, LOG_GENERAL, LOG_ERROR);
+        die $msg;
     }
 } else { # debpool wasn't running so create a lock
     print LOCK_FILE "$$\n";
