@@ -43,45 +43,7 @@ use warnings;
 
 use POSIX; # This gets us strftime.
 
-# First things first - figure out how we need to be configured.
-
-use Getopt::Long qw(:config pass_through);
-use DebPool::Config qw(:functions :vars);
-
-# First, grab --config and --nodefault options if they exist. We
-# don't want these in the %Options hash, and they affect what we do when
-# loading it.
-
-my(@config_files);
-my($default);
-
-GetOptions('config=s' => \@config_files, 'default!' => \$default);
-
-# Call Load_Default_Configs if we're loading default values, or
-# Load_Minimal_Configs if we're not (we still need the OptionDefs hash to
-# be populated).
-
-if (!defined($default) || $default) {
-    Load_Default_Configs();
-} else {
-    Load_Minimal_Configs();
-}
-
-# Load any config files we were given.
-
-my($config);
-
-foreach $config (@config_files) {
-    Load_File_Configs($config);
-}
-
-# And finally, pull in any other command line options.
-
-GetOptions(\%Options, values(%OptionDefs));
-
-# Run the cleanup stuff on %Options.
-
-Clean_Options();
+use DebPool::Config qw(:vars);
 
 # Okay. We're more or less ready to go. First, load some modules that we
 # know we'll be calling.
@@ -412,6 +374,24 @@ foreach $changefile (@changefiles) {
         next;
     }
 
+    # Go through each arch in .changes file and check if the repository
+    # is configured for that arch.
+
+    $rejected = undef;
+    my @chg_archs = grep(!/^(source|all)$/, @{$changes_data->{'Architecture'}});
+
+    foreach my $chg_arch (@chg_archs) {
+        unless ( grep /^\Q$chg_arch\E$/, @{$Options{'archs'}} ) {
+             Reject_Package($changefile, $changes_data);
+             my($msg) = "The archive isn't configured for '$chg_arch' type packages.";
+             Log_Message($msg, LOG_REJECT, LOG_ERROR);
+             $rejected = 1;
+             last;
+        }
+    }
+
+    next if ($rejected); # Reject message already logged, go to next package.
+
     # Go through each distribution in the changes file, and decide whether
     # the package is valid for that distribution.
 
@@ -419,14 +399,14 @@ foreach $changefile (@changefiles) {
     my(@valid_dists);
 
     foreach $distribution (@{$changes_data->{'Distribution'}}) {
-        $realdist = $distribution;
+        $realdist = undef;
 
-        if (defined($Options{'virtual_dists'}->{$realdist})) {
-            $realdist = $Options{'virtual_dists'}->{$realdist};
+        if (defined($Options{'virtual_dists'}->{$distribution})) {
+            $realdist = $Options{'virtual_dists'}->{$distribution};
         }
 
-        if (defined($Options{'dists'}->{$realdist})) {
-            $realdist = $Options{'dists'}->{$realdist};
+        if (defined($Options{'dists'}->{$distribution})) {
+            $realdist = $Options{'dists'}->{$distribution};
         }
 
         if (!defined($realdist)) {

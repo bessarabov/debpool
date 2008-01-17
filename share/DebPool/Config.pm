@@ -134,6 +134,48 @@ our($Error);
 
 # None
 
+### Module Init
+
+# First things first - figure out how we need to be configured.
+
+use Getopt::Long qw(:config pass_through);
+
+# First, grab --config and --nodefault options if they exist. We
+# don't want these in the %Options hash, and they affect what we do when
+# loading it.
+
+my(@config_files);
+my($default);
+
+GetOptions('config=s' => \@config_files, 'default!' => \$default);
+
+# Call Load_Default_Configs if we're loading default values, or
+# Load_Minimal_Configs if we're not (we still need the OptionDefs hash to
+# be populated).
+
+if (!defined($default) || $default) {
+    Load_Default_Configs();
+} else {
+    Load_Minimal_Configs();
+}
+
+# Load any config files we were given.
+
+my($config);
+
+foreach $config (@config_files) {
+    Load_File_Configs($config);
+}
+
+# And finally, pull in any other command line options.
+
+GetOptions(\%Options, values(%OptionDefs));
+
+# Run the cleanup stuff on %Options.
+
+Clean_Options();
+
+
 ### Meaningful functions
 
 # Load_Default_Configs

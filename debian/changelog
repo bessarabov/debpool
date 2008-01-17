@@ -76,6 +76,12 @@ debpool (0.2.4~unreleased0) experimental; urgency=low
     + Temp::File used to automatically unlink in case of any errors.
     + Thanks Magnus Holmgren.
   * Update example Config.pm.
+  * Applying several patches from Alexei Chetroi.
+    + Moved config parsing from bin/debpool to share/DebPool/Config.pm, making
+      code more readable and maintainable.
+    + Fixed problem when uploading packages to an unconfigured distribution.
+    + Fixed problem when uploading packages to an unconfigured architecture.
+    + Thanks Alexei Chetroi.
 
  -- Andres Mejia <mcitadel@gmail.com>  Thu, 10 Jan 2008 01:26:13 -0500
 
