@@ -82,6 +82,8 @@ debpool (0.2.4~unreleased0) experimental; urgency=low
     + Fixed problem when uploading packages to an unconfigured distribution.
     + Fixed problem when uploading packages to an unconfigured architecture.
     + Thanks Alexei Chetroi.
+  * Setup a user configuration directory at $ENV{'HOME'}/.debpool if one
+    doesn't exist.
 
  -- Andres Mejia <mcitadel@gmail.com>  Thu, 10 Jan 2008 01:26:13 -0500
 

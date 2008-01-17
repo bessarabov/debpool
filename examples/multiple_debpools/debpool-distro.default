@@ -8,9 +8,11 @@ ENABLED="0"
 # to specify --daemon.
 OPTIONS="--config /etc/debpool/$DISTRO-Config.pm"
 
-# User or user:group to run debpool as. If you leave it empty, debpool
-# will run as root.
+# User and group to run debpool as. If you leave DEBPOOL_USER empty, debpool
+# will run as root. If you leave the group empty, DEBPOOL_GROUP will be the
+# same as DEBPOOL_USER.
 DEBPOOL_USER=""
+DEBPOOL_GROUP=""
 
 # Specify a path for the log file
 LOGFILE="/var/log/$NAME-$DISTRO.log"

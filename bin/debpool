@@ -55,18 +55,6 @@ use DebPool::Logging qw(:functions :facility :level); # Logging routines
 use DebPool::Packages qw(:functions :vars); # Distribution databases
 use DebPool::Signal qw(:functions :vars); # Handle signals
 
-my @compression_methods;
-
-# Have support for multiple compression schemes in a dynamical fashion
-if ($Options{'compress_dists'}) {
-    require DebPool::Gzip; # Gzip interaction routines
-    push @compression_methods, new DebPool::Gzip;
-}
-if ($Options{'bzcompress_dists'}) {
-    require DebPool::Bzip2; # Bzip2 interaction routines
-    push @compression_methods, new DebPool::Bzip2;
-}
-
 # Before we do anything else, let's find out if we need to act as a daemon,
 # and if so, whether we can manage to pull it off.
 
@@ -81,6 +69,24 @@ if ($Options{'daemon'}) {
         Log_Message("Running as a daemon requires installation of libproc-daemon-perl.", LOG_GENERAL, LOG_ERROR);
         exit 1;
     }
+}
+
+# Set up a directory for debpool in the user's HOME directory, even if we're
+# sure that it will never be used.
+if (! -d "$ENV{'HOME'}/.debpool") {
+    mkdir("$ENV{'HOME'}/.debpool") or
+    Log_Message("Failed to create user configuration directory '$ENV{'HOME'}/.debpool'.", LOG_GENERAL, LOG_ERROR);
+}
+
+# Have support for multiple compression schemes in a dynamical fashion
+my @compression_methods;
+if ($Options{'compress_dists'}) {
+    require DebPool::Gzip; # Gzip interaction routines
+    push @compression_methods, new DebPool::Gzip;
+}
+if ($Options{'bzcompress_dists'}) {
+    require DebPool::Bzip2; # Bzip2 interaction routines
+    push @compression_methods, new DebPool::Bzip2;
 }
 
 # Create the directory tree. This is clean even it it already exists,
