@@ -2,7 +2,7 @@ Source: debpool
 Section: devel
 Priority: extra
 Maintainer: DebPool Developers <debpool-devel@lists.alioth.debian.org>
-Uploaders: Andres Mejia <mcitadel@gmail.com>, Joel Aelwyn <fenton@debian.org>
+Uploaders: Andres Mejia <mcitadel@gmail.com>, Magnus Holmgren <holmgren@lysator.liu.se>
 Standards-Version: 3.7.3
 Build-Depends: debhelper (>= 4)
 Vcs-SVN: svn://svn.debian.org/svn/debpool
