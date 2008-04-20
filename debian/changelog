@@ -1,4 +1,4 @@
-debpool (0.2.4~unreleased0) experimental; urgency=low
+debpool (0.3.0) experimental; urgency=low
 
   [ Andres Mejia ]
   * New maintainer (Closes: #465937)
@@ -86,7 +86,7 @@ debpool (0.2.4~unreleased0) experimental; urgency=low
   * Setup a user configuration directory at $ENV{'HOME'}/.debpool if one
     doesn't exist.
 
- -- Andres Mejia <mcitadel@gmail.com>  Sun, 17 Feb 2008 15:38:24 -0500
+ -- Andres Mejia <mcitadel@gmail.com>  Sat, 19 Apr 2008 22:26:11 -0400
 
 debpool (0.2.3) experimental; urgency=low
 
