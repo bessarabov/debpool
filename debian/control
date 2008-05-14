@@ -8,6 +8,7 @@ Build-Depends: debhelper (>= 4)
 Vcs-Git: git://git.debian.org/git/debpool/debpool.git
 Vcs-Browser: http://git.debian.org/?p=debpool/debpool.git
 Homepage: http://wiki.debian.org/debpool
+DM-Upload-Allowed: yes
 
 Package: debpool
 Architecture: all

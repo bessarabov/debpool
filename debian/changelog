@@ -85,8 +85,9 @@ debpool (0.3.0) experimental; urgency=low
     + Thanks Alexei Chetroi.
   * Setup a user configuration directory at $ENV{'HOME'}/.debpool if one
     doesn't exist.
+  * Added 'DM-Upload-Allowed: yes' field.
 
- -- Andres Mejia <mcitadel@gmail.com>  Sat, 19 Apr 2008 22:26:11 -0400
+ -- Andres Mejia <mcitadel@gmail.com>  Tue, 13 May 2008 23:50:40 -0400
 
 debpool (0.2.3) experimental; urgency=low
 
