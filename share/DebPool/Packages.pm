@@ -312,7 +312,7 @@ sub Parse_Changes {
                     LOG_PARSE, LOG_ERROR);
         $Error = 'No Format header found';
         return undef;
-    } elsif (('1.7' ne $result{'Format'}) or ('1.8' ne $result{'Format'})) {
+    } elsif (('1.7' ne $result{'Format'}) and ('1.8' ne $result{'Format'})) {
         Log_Message("Unrecognized Format version '$result{'Format'}'",
                     LOG_PARSE, LOG_ERROR);
         $Error = 'Unrecognized Format version';
