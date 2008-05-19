@@ -305,14 +305,14 @@ sub Parse_Changes {
     }
 
     # Now that we should have it, check to make sure we have a Format
-    # header, and that it's format 1.7 (the only thing we grok).
+    # header, and that it's format 1.7 or 1.8.
 
     if (!defined($result{'Format'})) {
         Log_Message("No Format header found in changes file '$file'",
                     LOG_PARSE, LOG_ERROR);
         $Error = 'No Format header found';
         return undef;
-    } elsif ('1.7' ne $result{'Format'}) {
+    } elsif (('1.7' ne $result{'Format'}) or ('1.8' ne $result{'Format'})) {
         Log_Message("Unrecognized Format version '$result{'Format'}'",
                     LOG_PARSE, LOG_ERROR);
         $Error = 'Unrecognized Format version';

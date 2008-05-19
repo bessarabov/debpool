@@ -1,4 +1,4 @@
-debpool (0.3.0) experimental; urgency=low
+debpool (0.3.1) experimental; urgency=low
 
   [ Andres Mejia ]
   * New maintainer (Closes: #465937)
@@ -86,8 +86,9 @@ debpool (0.3.0) experimental; urgency=low
   * Setup a user configuration directory at $ENV{'HOME'}/.debpool if one
     doesn't exist.
   * Added 'DM-Upload-Allowed: yes' field.
+  * Support parsing changes files that are format 1.7 or 1.8.
 
- -- Andres Mejia <mcitadel@gmail.com>  Tue, 13 May 2008 23:50:40 -0400
+ -- Andres Mejia <mcitadel@gmail.com>  Sun, 18 May 2008 21:53:29 -0400
 
 debpool (0.2.3) experimental; urgency=low
 
