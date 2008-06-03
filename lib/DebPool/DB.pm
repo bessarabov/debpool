@@ -124,9 +124,8 @@ sub Open_Databases {
 
     my($db_dir) = $Options{'db_dir'};
     my($db_file_mode) = $Options{'db_file_mode'};
-    my($dist);
 
-    foreach $dist (@{$Options{'realdists'}}) {
+    foreach my $dist (@{$Options{'realdists'}}) {
         my(%tiedhash);
         my($tie_result) = tie(%tiedhash, 'NDBM_File',
                               "$db_dir/${dist}_version",
@@ -138,7 +137,7 @@ sub Open_Databases {
         $VersionDB{$dist} = \%tiedhash;
     }
 
-    foreach $dist (@{$Options{'realdists'}}) {
+    foreach my $dist (@{$Options{'realdists'}}) {
         my(%tiedhash);
         my($tie_result) = tie(%tiedhash, 'NDBM_File',
                               "$db_dir/${dist}_component",
@@ -160,13 +159,11 @@ sub Open_Databases {
 # NOTE: Untie doesn't return anything (?), so we can't really trap errors.
 
 sub Close_Databases {
-    my($dist);
-
-    foreach $dist (keys(%VersionDB)) {
+    foreach my $dist (keys(%VersionDB)) {
         untie(%{$VersionDB{$dist}});
     }
 
-    foreach $dist (keys(%ComponentDB)) {
+    foreach my $dist (keys(%ComponentDB)) {
         untie(%{$ComponentDB{$dist}});
     }
 
@@ -182,7 +179,7 @@ sub Close_Databases {
 sub Get_Version {
     my($dist, $source, $package) = @_;
 
-    return undef unless defined $VersionDB{$dist}{$source};
+    return unless defined $VersionDB{$dist}{$source};
     my($version, $binlist, $archlist) = split(/\|/, $VersionDB{$dist}{$source});
 
     # Versions prior to 0.2.2 had only one entry, which is the source
@@ -206,7 +203,7 @@ sub Get_Version {
 sub Get_Archs {
     my($dist, $source) = @_;
 
-    return undef unless defined $VersionDB{$dist}{$source};
+    return unless defined $VersionDB{$dist}{$source};
     my($version, $binlist, $archlist) = split(/\|/, $VersionDB{$dist}{$source});
     return split /,/, $archlist if defined $archlist;
     return @{$Options{'archs'}};
@@ -217,7 +214,8 @@ sub Get_Archs {
 sub Set_Versions {
     my($dist, $source, $meta_version, $file_arrayref) = @_;
     my (%entries, %archs);
-    my($oldversion, $oldbinlist, $archlist) =
+    my($oldversion, $oldbinlist, $archlist);
+    ($oldversion, $oldbinlist, $archlist) =
         split(/\|/, $VersionDB{$dist}{$source}) if defined $VersionDB{$dist}{$source};
 
     if (defined($oldbinlist)) {

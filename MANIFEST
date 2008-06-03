@@ -1,0 +1,15 @@
+Makefile.PL
+MANIFEST
+# t/DebPool.t
+lib/DebPool/Packages.pm
+lib/DebPool/Util.pm
+lib/DebPool/Signal.pm
+lib/DebPool/Release.pm
+lib/DebPool/Logging.pm
+lib/DebPool/GnuPG.pm
+lib/DebPool/Gzip.pm
+lib/DebPool/Dirs.pm
+lib/DebPool/Bzip2.pm
+lib/DebPool/Config.pm
+# lib/DebPool/Hooks.pm
+lib/DebPool/DB.pm

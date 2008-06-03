@@ -144,8 +144,8 @@ use Getopt::Long qw(:config pass_through);
 # don't want these in the %Options hash, and they affect what we do when
 # loading it.
 
-my(@config_files);
-my($default);
+my @config_files;
+my $default;
 
 GetOptions('config=s' => \@config_files, 'default!' => \$default);
 
@@ -161,9 +161,7 @@ if (!defined($default) || $default) {
 
 # Load any config files we were given.
 
-my($config);
-
-foreach $config (@config_files) {
+foreach my $config (@config_files) {
     Load_File_Configs($config);
 }
 
@@ -189,11 +187,11 @@ sub Load_Default_Configs {
     Load_Internal_Configs();
 
     if (-r '/etc/debpool/Config.pm') {
-        require '/etc/debpool/Config.pm'; # System defaults
+        do '/etc/debpool/Config.pm'; # System defaults
     }
 
     if (-r "$ENV{'HOME'}/.debpool/Config.pm") {
-        require "$ENV{'HOME'}/.debpool/Config.pm"; # User defaults
+        do "$ENV{'HOME'}/.debpool/Config.pm"; # User defaults
     }
 }
 
@@ -218,7 +216,7 @@ sub Load_Minimal_Configs {
 # lockfile is held, it won't clean that up if we die.
 
 sub Load_File_Configs {
-    require "$_[0]";
+    do "$_[0]";
 }
 
 # Override_Configs($override_hashref)
@@ -228,9 +226,8 @@ sub Load_File_Configs {
 
 sub Override_Configs {
     my($hashref) = @_;
-    my($key);
 
-    foreach $key (keys(%{$hashref})) {
+    foreach my $key (keys(%{$hashref})) {
         $Options{$key} = $hashref->{$key};
     }
 }
@@ -245,18 +242,17 @@ sub Clean_Options {
     # 'all' should never be. Simplest way to manage this is a throwaway
     # hash. This should maybe live somewhere else, but I'm not sure where.
 
-    my(%dummy);
-    my($dummykey);
-    my(@newarch);
+    my %dummy;
+    my @newarch;
 
-    foreach $dummykey (@{$Options{'archs'}}) {
+    foreach my $dummykey (@{$Options{'archs'}}) {
         $dummy{$dummykey} = 1;
     }
 
     $dummy{'all'} = undef;
     $dummy{'source'} = 1;
 
-    foreach $dummykey (keys(%dummy)) {
+    foreach my $dummykey (keys(%dummy)) {
         if ($dummy{$dummykey}) {
             push(@newarch, $dummykey);
         }
@@ -269,11 +265,11 @@ sub Clean_Options {
 
     %dummy = ();
     
-    foreach $dummykey (values(%{$Options{'dists'}})) {
+    foreach my $dummykey (values(%{$Options{'dists'}})) {
         $dummy{$dummykey} = 1;
     }
 
-    my(@realdists) = keys(%dummy);
+    my @realdists = keys(%dummy);
     $Options{'realdists'} = \@realdists;
 
     # Also generate a reverse-lookup table of real -> alias; in the case
@@ -281,9 +277,9 @@ sub Clean_Options {
     # to, and making it consistant and first means you can have multiple
     # aliases in a sensible order).
 
-    my(%reverse) = ();
-    foreach $dummykey (keys(%{$Options{'dists'}})) {
-        my($real) = $Options{'dists'}->{$dummykey};
+    my %reverse = ();
+    foreach my $dummykey (keys(%{$Options{'dists'}})) {
+        my $real = $Options{'dists'}->{$dummykey};
         if (!defined($reverse{$real})) {
             $reverse{$real} = $dummykey;
         }

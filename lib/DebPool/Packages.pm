@@ -93,12 +93,12 @@ BEGIN {
 # Thread-safe? What's that? Package global error value. We don't export
 # this directly, because it would conflict with other modules.
 
-our($Error);
+our $Error;
 
 # Fields (other than package relationships) from dpkg --info that we
 # actually care about in some fashion.
 
-my(@Info_Fields) = (
+my @Info_Fields = (
 #    'Package',
     'Priority',
     'Section',
@@ -111,7 +111,7 @@ my(@Info_Fields) = (
 
 # Package relationship fieldnames.
 
-my(@Relationship_Fields) = (
+my @Relationship_Fields = (
     'Pre-Depends',
     'Depends',
     'Provides',
@@ -124,7 +124,7 @@ my(@Relationship_Fields) = (
 
 # Normal fields potentially found in .changes files
 
-my(%Changes_Fields) = (
+my %Changes_Fields = (
     'Format' => 'string',
     'Date' => 'string',
     'Source' => 'string',
@@ -140,7 +140,7 @@ my(%Changes_Fields) = (
 
 # Normal fields potentially found in .dsc files
 
-my(%DSC_Fields) = (
+my %DSC_Fields = (
     'Format' => 'string',
     'Source' => 'string',
     'Version' => 'string',
@@ -175,7 +175,7 @@ sub Allow_Version {
     use DebPool::Logging qw(:functions :facility :level);
 
     my($package, $version, $distribution, $arch) = @_;
-    my($old_version) = Get_Version($distribution, $package, 'meta');
+    my $old_version = Get_Version($distribution, $package, 'meta');
 
     # If we permit rollback, any version is valid.
 
@@ -198,7 +198,7 @@ sub Allow_Version {
             }
         }
         if (@duplicate_arches) {
-            my($msg) = "Version comparison for '$package': ";
+            my $msg = "Version comparison for '$package': ";
             $msg .= "proposed version for $distribution ($version) ";
             $msg .= "is same as current version and the following ";
             $msg .= "architectures already exist: ";
@@ -209,13 +209,13 @@ sub Allow_Version {
         return 1;
     }
 
-    my($dpkg_bin) = '/usr/bin/dpkg';
-    my(@args) = ('--compare-versions', $version, 'gt', $old_version);
+    my $dpkg_bin = '/usr/bin/dpkg';
+    my @args = ('--compare-versions', $version, 'gt', $old_version);
 
-    my($sysret) = WEXITSTATUS(system($dpkg_bin, @args));
+    my $sysret = WEXITSTATUS(system($dpkg_bin, @args));
 
     if (0 != $sysret) { # DPKG says no go.
-        my($msg) = "Version comparison for '$package': proposed version for ";
+        my $msg = "Version comparison for '$package': proposed version for ";
         $msg .= "$distribution ($version) is not greater than current ";
         $msg .= "version ($old_version)";
         Log_Message($msg, LOG_GENERAL, LOG_DEBUG);
@@ -263,27 +263,27 @@ sub Parse_Changes {
     use DebPool::Logging qw(:functions :facility :level);
 
     my($file) = @_;
-    my(%result);
+    my %result;
 
     # Read in the entire Changes file, stripping GPG encoding if we find
     # it. It should be small, this is fine.
 
-    if (!open(CHANGES, '<', $file)) {
+    my $changes_fh;
+    if (!open($changes_fh, '<', $file)) {
         $Error = "Couldn't open changes file '$file': $!";
-        return undef;
+        return;
     }
 
-    my(@changes) = <CHANGES>;
+    my @changes = <$changes_fh>;
     chomp(@changes);
     @changes = Strip_GPG(@changes);
-    close(CHANGES);
+    close($changes_fh);
 
     # Go through each of the primary fields, stuffing it into the result
     # hash if we find it.
 
-    my($field);
-    foreach $field (keys(%Changes_Fields)) {
-        my(@lines) = grep(/^${field}:\s+/, @changes);
+    foreach my $field (keys(%Changes_Fields)) {
+        my @lines = grep(/^${field}:\s+/, @changes);
         if (-1 == $#lines) { # No match
             next;
         } elsif (0 < $#lines) { # Multiple matches
@@ -296,10 +296,10 @@ sub Parse_Changes {
         if ('string' eq $Changes_Fields{$field}) {
             $result{$field} = $lines[0];
         } elsif ('space_array' eq $Changes_Fields{$field}) {
-            my(@array) = split(/\s+/, $lines[0]);
+            my @array = split(/\s+/, $lines[0]);
             $result{$field} = \@array;
         } elsif ('comma_array' eq $Changes_Fields{$field}) {
-            my(@array) = split(/\s+,\s+/, $lines[0]);
+            my @array = split(/\s+,\s+/, $lines[0]);
             $result{$field} = \@array;
         }
     }
@@ -311,20 +311,18 @@ sub Parse_Changes {
         Log_Message("No Format header found in changes file '$file'",
                     LOG_PARSE, LOG_ERROR);
         $Error = 'No Format header found';
-        return undef;
+        return;
     } elsif (('1.7' ne $result{'Format'}) and ('1.8' ne $result{'Format'})) {
         Log_Message("Unrecognized Format version '$result{'Format'}'",
                     LOG_PARSE, LOG_ERROR);
         $Error = 'Unrecognized Format version';
-        return undef;
+        return;
     }
 
     # Special case: Description. One-line entry, immediately after a line
     # with '^Description:'.
 
-    my($count);
-
-    for $count (0..$#changes) {
+    for my $count (0..$#changes) {
         if ($changes[$count] =~ m/^Description:/) {
             $result{'Description'} = $changes[$count+1];
         }
@@ -334,9 +332,9 @@ sub Parse_Changes {
     # '^Changes:', goes until we hit the Files header.
 
     my($found) = 0;
-    my(@changelines);
+    my @changelines;
 
-    for $count (0..$#changes) {
+    for my $count (0..$#changes) {
         if ($found) {
             if ($changes[$count] =~ m/^Files:/) {
                 $found = 0;
@@ -356,14 +354,14 @@ sub Parse_Changes {
     # 'Files:' header, and goes until we hit a blank line, or the end of
     # the data.
 
-    my(@files);
+    my @files;
 
-    for $count (0..$#changes) {
+    for my $count (0..$#changes) {
         if ($found) {
             if ($changes[$count] =~ m/^(\s*$|\S)/) { # End of Files entry
                 $found = 0; # No longer in Files
             } elsif ($changes[$count] =~ m/\s*([[:xdigit:]]+)\s+(\d+)\s+(\S+)\s+(\S+)\s+(\S+)/) {
-                my($md5, $size, $sec, $pri, $file) = ($1, $2, $3, $4, $5);
+                my ($md5, $size, $sec, $pri, $file) = ($1, $2, $3, $4, $5);
                 push(@files, {
                     'Filename' => $file,
                     'MD5Sum' => $md5,
@@ -372,7 +370,7 @@ sub Parse_Changes {
                     'Size' => $size,
                 });
             } else { # What's this doing here?
-                my($msg) = 'Unrecognized data in Files section of changes file';
+                my $msg = 'Unrecognized data in Files section of changes file';
                 $msg .= " '$file'";
                 Log_Message($msg, LOG_PARSE, LOG_WARNING);
             }
@@ -419,27 +417,27 @@ sub Parse_DSC {
     use DebPool::Logging qw(:functions :facility :level);
 
     my($file) = @_;
-    my(%result);
+    my %result;
 
     # Read in the entire DSC file, stripping GPG encoding if we find it. It
     # should be small, this is fine.
 
-    if (!open(DSC, '<', $file)) {
+    my $dsc_fh;
+    if (!open($dsc_fh, '<', $file)) {
         $Error = "Couldn't open dsc file '$file': $!";
-        return undef;
+        return;
     }
 
-    my(@dsc) = <DSC>;
+    my @dsc = <$dsc_fh>;
     chomp(@dsc);
     @dsc = Strip_GPG(@dsc);
-    close(DSC);
+    close($dsc_fh);
 
     # Go through each of the primary fields, stuffing it into the result
     # hash if we find it.
 
-    my($field);
-    foreach $field (keys(%DSC_Fields)) {
-        my(@lines) = grep(/^${field}:\s+/, @dsc);
+    foreach my $field (keys(%DSC_Fields)) {
+        my @lines = grep(/^${field}:\s+/, @dsc);
         if (-1 == $#lines) { # No match
             next;
         } elsif (0 < $#lines) { # Multiple matches
@@ -452,10 +450,10 @@ sub Parse_DSC {
         if ('string' eq $DSC_Fields{$field}) {
             $result{$field} = $lines[0];
         } elsif ('space_array' eq $DSC_Fields{$field}) {
-            my(@array) = split(/\s+/, $lines[0]);
+            my @array = split(/\s+/, $lines[0]);
             $result{$field} = \@array;
         } elsif ('comma_array' eq $DSC_Fields{$field}) {
-            my(@array) = split(/\s+,\s+/, $lines[0]);
+            my @array = split(/\s+,\s+/, $lines[0]);
             $result{$field} = \@array;
         }
     }
@@ -467,12 +465,12 @@ sub Parse_DSC {
         Log_Message("No Format header found in dsc file '$file'",
                     LOG_PARSE, LOG_ERROR);
         $Error = 'No Format header found';
-        return undef;
+        return;
     } elsif ('1.0' ne $result{'Format'}) {
         Log_Message("Unrecognized Format version '$result{'Format'}'",
                     LOG_PARSE, LOG_ERROR);
         $Error = 'Unrecognized Format version';
-        return undef;
+        return;
     }
 
     # The Files section is a special case. It starts on the line after the
@@ -482,23 +480,23 @@ sub Parse_DSC {
     # In fact, it's even more special than that; it includes, first, an entry
     # for the DSC file itself...
 
-    my($count);
-    my($found) = 0;
-    my(@files);
+    my $count;
+    my $found = 0;
+    my @files;
 
-    my(@temp) = split(/\//, $file);
-    my($dsc_leaf) = pop(@temp);
+    my @temp = split(/\//, $file);
+    my $dsc_leaf = pop(@temp);
 
-    my($cmd_result) = `/usr/bin/md5sum $file`;
+    my $cmd_result = `/usr/bin/md5sum $file`;
     $cmd_result =~ m/^([[:xdigit:]]+)\s+/;
-    my($dsc_md5) = $1;
+    my $dsc_md5 = $1;
 
-    my(@stat) = stat($file);
+    my @stat = stat($file);
     if (!@stat) {
         $Error = "Couldn't stat DSC file '$file'";
-        return undef;
+        return;
     }
-    my($dsc_size) = $stat[7];
+    my $dsc_size = $stat[7];
 
     push(@files, {
         'Filename' => $dsc_leaf,
@@ -506,7 +504,7 @@ sub Parse_DSC {
         'Size' => $dsc_size,
     });
 
-    for $count (0..$#dsc) {
+    for my $count (0..$#dsc) {
         if ($found) {
             if ($dsc[$count] =~ m/^(\s*$|\S)/) { # End of Files entry
                 $found = 0; # No longer in Files
@@ -518,7 +516,7 @@ sub Parse_DSC {
                     'Size' => $size,
                 });
             } else { # What's this doing here?
-                my($msg) = 'Unrecognized data in Files section of dsc file';
+                my $msg = 'Unrecognized data in Files section of dsc file';
                 $msg .= " '$file'";
                 Log_Message($msg, LOG_PARSE, LOG_WARNING);
             }
@@ -549,52 +547,52 @@ sub Generate_List {
 
     my($distribution, $section, $arch) = @_;
 
-    my(%packages);
+    my %packages;
 
     if ('all' eq $arch) {
         $Error = "No point in generating Packages file for binary-all";
-        return undef;
+        return;
     }
 
-    my(@sources) = grep($ComponentDB{$distribution}->{$_} eq $section,
+    my @sources = grep($ComponentDB{$distribution}->{$_} eq $section,
                         keys(%{$ComponentDB{$distribution}}));
 
     my($tmpfile_handle, $tmpfile_name) = tempfile();
-
-    my($source);
 
     # Dump the data from pool/*/*/pkg_ver.{package,source} into the list.
 
     # FIXME: This needs to be refactored. Needs it pretty badly, in fact.
 
     if ('source' eq $arch) {
-        foreach $source (@sources) {
-            my($pool) = join('/',
+        foreach my $source (@sources) {
+            my $pool = join('/',
                 ($Options{'pool_dir'}, PoolDir($source, $section), $source));
-            my($version) = Get_Version($distribution, $source, 'meta');
-            my($target) = "$pool/${source}_" . Strip_Epoch($version);
+            my $version = Get_Version($distribution, $source, 'meta');
+            my $target = "$pool/${source}_" . Strip_Epoch($version);
             $target .= '.source';
 
             # Source files aren't always present.
-            next if (!open(SRC, '<', "$target"));
+            next if (!open(my $src_fh, '<', "$target"));
 
-            print $tmpfile_handle <SRC>;
-            close(SRC);
+            $tmpfile_handle->print(<$src_fh>);
+            close($src_fh);
         }
     } else {
-        foreach $source (@sources) {
-            my($pool) = join('/',
+        foreach my $source (@sources) {
+            my $pool = join('/',
                 ($Options{'pool_dir'}, PoolDir($source, $section), $source));
-            my($version) = Get_Version($distribution, $source, 'meta');
-            my($target) = "$pool/${source}_" . Strip_Epoch($version);
+            my $version = Get_Version($distribution, $source, 'meta');
+            my $target = "$pool/${source}_" . Strip_Epoch($version);
             $target .= "_$arch\.package";
-            my($target_all) = "$pool/${source}_" . Strip_Epoch($version);
+            my $target_all = "$pool/${source}_" . Strip_Epoch($version);
             $target_all .= "_all\.package";
+
+	    my ($pkg_arch_fh, $pkg_all_fh);
 
             # Check for any binary-arch packages
             if (-e $target) {
-                if (!open(PKG_ARCH, '<', "$target")) {
-                    my($msg) = "Skipping package entry for all packages from ";
+                if (!open($pkg_arch_fh, '<', "$target")) {
+                    my $msg = "Skipping package entry for all packages from ";
                     $msg .= "${source}: couldn't open '$target' for reading: $!";
 
                     Log_Message($msg, LOG_GENERAL, LOG_ERROR);
@@ -604,8 +602,8 @@ sub Generate_List {
 
             # Check for any binary-all packages
             if (-e $target_all) {
-                if (!open(PKG_ALL, '<', "$target_all")) {
-                    my($msg) = "Skipping package entry for all packages ";
+                if (!open($pkg_all_fh, '<', "$target_all")) {
+                    my $msg = "Skipping package entry for all packages ";
                     $msg .= "from ${source}: couldn't open '$target_all' for";
                     $msg .= " reading: $!";
 
@@ -617,19 +615,19 @@ sub Generate_List {
             # Playing around with the record separator ($/) to make this
             # easier.
 
-            my($backup_RS) = $/;
+            my $backup_RS = $/;
             $/ = "";
 
-            my(@arch_entries);
+            my @arch_entries;
             if (-e $target) { # Write entries from arch packages
-                @arch_entries = <PKG_ARCH>;
-                close(PKG_ARCH);
+                @arch_entries = <$pkg_arch_fh>;
+                close($pkg_arch_fh);
             }
 
-            my(@all_entries);
+            my @all_entries;
             if (-e $target_all) { # Write entries from all packages
-                @all_entries = <PKG_ALL>;
-                close(PKG_ALL);
+                @all_entries = <$pkg_all_fh>;
+                close($pkg_all_fh);
             }
 
             $/ = $backup_RS;
@@ -665,17 +663,17 @@ sub Install_Package {
 
     my($changes, $chg_hashref, $dsc, $dsc_hashref, $distributions) = @_;
 
-    my($incoming_dir) = $Options{'incoming_dir'};
-    my($installed_dir) = $Options{'installed_dir'};
-    my($pool_dir) = $Options{'pool_dir'};
+    my $incoming_dir = $Options{'incoming_dir'};
+    my $installed_dir = $Options{'installed_dir'};
+    my $pool_dir = $Options{'pool_dir'};
 
-    my($pkg_name) = $chg_hashref->{'Source'};
-    my($pkg_ver) = $chg_hashref->{'Version'};
+    my $pkg_name = $chg_hashref->{'Source'};
+    my $pkg_ver = $chg_hashref->{'Version'};
 
-    my($guess_section) = Guess_Section($chg_hashref);
-    my($pkg_pool_subdir) = join('/',
+    my $guess_section = Guess_Section($chg_hashref);
+    my $pkg_pool_subdir = join('/',
         ($pool_dir, PoolDir($pkg_name, $guess_section)));
-    my($pkg_dir) = join('/', ($pkg_pool_subdir, $pkg_name));
+    my $pkg_dir = join('/', ($pkg_pool_subdir, $pkg_name));
 
     # Create the directory or error out
 
@@ -689,10 +687,8 @@ sub Install_Package {
     # Walk the File Hash, trying to install each listed file into the
     # pool directory.
 
-    my($filehash);
-
-    foreach $filehash (@{$chg_hashref->{'Files'}}) {
-        my($file) = $filehash->{'Filename'};
+    foreach my $filehash (@{$chg_hashref->{'Files'}}) {
+        my $file = $filehash->{'Filename'};
         if (!Move_File("${incoming_dir}/${file}", "${pkg_dir}/${file}",
                 $Options{'pool_file_mode'})) {
             $Error = "Failed to move '${incoming_dir}/${file}' ";
@@ -703,16 +699,16 @@ sub Install_Package {
 
     # Generate and install .package and .source metadata files.
 
-    my(@pkg_archs) = @{$chg_hashref->{'Architecture'}};
+    my @pkg_archs = @{$chg_hashref->{'Architecture'}};
     @pkg_archs = grep(!/source/, @pkg_archs); # Source is on it's own.
 
-    my($target);
+    my $target;
     foreach my $pkg_arch (@pkg_archs) {
-        my($pkg_file) = Generate_Package($chg_hashref, $pkg_arch);
+        my $pkg_file = Generate_Package($chg_hashref, $pkg_arch);
 
         if (!defined($pkg_file)) {
             $Error = "Failed to generate .package file: $Error";
-            return undef;
+            return;
         }
 
         $target = "$pkg_dir/${pkg_name}_" . Strip_Epoch($pkg_ver) . "_$pkg_arch" . '.package';
@@ -725,11 +721,11 @@ sub Install_Package {
     }
 
     if (defined($dsc) && defined($dsc_hashref)) {
-        my($src_file) = Generate_Source($dsc, $dsc_hashref, $chg_hashref);
+        my $src_file = Generate_Source($dsc, $dsc_hashref, $chg_hashref);
     
         if (!defined($src_file)) {
             $Error = "Failed to generate .source file: $Error";
-            return undef;
+            return;
         }
 
         $target = "$pkg_dir/${pkg_name}_" . Strip_Epoch($pkg_ver) . '.source';
@@ -752,17 +748,17 @@ sub Install_Package {
 
     # Update the various databases.
 
-    my($distribution);
+    my $distribution;
 
     # This whole block is just to calculate the component. What a stupid
     # setup - it should be in the changes file. Oh well.
 
-    my(@filearray) = @{$chg_hashref->{'Files'}};
-    my($fileref) = $filearray[0];
-    my($section) = $fileref->{'Section'};
-    my($component) = Strip_Subsection($section);
+    my @filearray = @{$chg_hashref->{'Files'}};
+    my $fileref = $filearray[0];
+    my $section = $fileref->{'Section'};
+    my $component = Strip_Subsection($section);
 
-    foreach $distribution (@{$distributions}) {
+    foreach my $distribution (@{$distributions}) {
         Set_Versions($distribution, $pkg_name, $pkg_ver,
             $chg_hashref->{'Files'});
         $ComponentDB{$distribution}->{$pkg_name} = $component;
@@ -787,16 +783,14 @@ sub Reject_Package {
 
     my($changes, $chg_hashref) = @_;
 
-    my($incoming_dir) = $Options{'incoming_dir'};
-    my($reject_dir) = $Options{'reject_dir'};
-    my($reject_file_mode) = $Options{'reject_file_mode'};
+    my $incoming_dir = $Options{'incoming_dir'};
+    my $reject_dir = $Options{'reject_dir'};
+    my $reject_file_mode = $Options{'reject_file_mode'};
 
     # Walk the File Hash, moving each file to the rejected directory.
 
-    my($filehash);
-
-    foreach $filehash (@{$chg_hashref->{'Files'}}) {
-        my($file) = $filehash->{'Filename'};
+    foreach my $filehash (@{$chg_hashref->{'Files'}}) {
+        my $file = $filehash->{'Filename'};
         if (!Move_File("$incoming_dir/$file", "$reject_dir/$file",
                 $reject_file_mode)) {
             $Error = "Failed to move '$incoming_dir/$file' ";
@@ -832,23 +826,23 @@ sub Verify_MD5 {
     # Read in and mangle the md5 output.
 
     if (! -r $file) { # The file doesn't exist! Will be hard to checksum it...
-        my($msg) = "MD5 checksum unavailable: file '$file' does not exist!";
+        my $msg = "MD5 checksum unavailable: file '$file' does not exist!";
         Log_Message($msg, LOG_GENERAL, LOG_ERROR);
         return 0;
     }
 
-    my($cmd_result) = `/usr/bin/md5sum $file`;
+    my $cmd_result = `/usr/bin/md5sum $file`;
     if (!$cmd_result) { # Failed to run md5sum for some reason
-        my($msg) = "MD5 checksum unavailable: file '$file'";
+        my $msg = "MD5 checksum unavailable: file '$file'";
         Log_Message($msg, LOG_GENERAL, LOG_ERROR);
         return 0;
     }
 
     $cmd_result =~ m/^([[:xdigit:]]+)\s+/;
-    my($check_md5) = $1;
+    my $check_md5 = $1;
 
     if ($md5 ne $check_md5) {
-        my($msg) = "MD5 checksum failure: file '$file', ";
+        my $msg = "MD5 checksum failure: file '$file', ";
         $msg .= "expected '$md5', got '$check_md5'";
         Log_Message($msg, LOG_GENERAL, LOG_ERROR);
         return 0;
@@ -872,11 +866,11 @@ sub Audit_Package {
     my($package, $changes_hashref) = @_;
 
     # Checking for version of package being installed
-    my($changes_version) = $changes_hashref->{'Version'};
+    my $changes_version = $changes_hashref->{'Version'};
     # Checking for binary only upload
-    my($with_source) = undef;
+    my $with_source = undef;
     # Checking for binary-all packages in binary only upload
-    my($with_indep) = undef;
+    my $with_indep = undef;
     for my $temp (@{$changes_hashref->{'Architecture'}}) {
         if ('source' eq $temp) {
             $with_source = 1;
@@ -886,31 +880,30 @@ sub Audit_Package {
         }
     }
 
-    my($installed_dir) = $Options{'installed_dir'};
-    my($pool_dir) = $Options{'pool_dir'};
+    my $installed_dir = $Options{'installed_dir'};
+    my $pool_dir = $Options{'pool_dir'};
 
-    my($section) = Guess_Section($changes_hashref);
-    my($package_dir) = join('/',
+    my $section = Guess_Section($changes_hashref);
+    my $package_dir = join('/',
         ($pool_dir, PoolDir($package, $section), $package));
 
-    my(@changes) = grep(/${package}_/, Scan_Changes($installed_dir));
+    my @changes = grep(/${package}_/, Scan_Changes($installed_dir));
     
-    my($pool_scan) = Scan_All($package_dir);
+    my $pool_scan = Scan_All($package_dir);
     if (!defined($pool_scan)) {
         $Error = $DebPool::Dirs::Error;
-        return undef;
+        return;
     }
-    my(@pool_files) = @{$pool_scan};
+    my @pool_files = @{$pool_scan};
 
     # Go through each file found in the pool directory, and determine its
     # version. If it isn't in the current version tables, unlink it.
     
-    my($file);
-    my($unlinked) = 0;
-    foreach $file (@pool_files) {
-        my($orig) = 0;
-        my($deb) = 0;
-        my($src) = 0;
+    my $unlinked = 0;
+    foreach my $file (@pool_files) {
+        my $orig = 0;
+        my $deb = 0;
+        my $src = 0;
         my($bin_package, $version);
 
         if ($file =~ m/^([^_]+)_([^_]+)\.orig\.tar\.gz$/) { # orig.tar.gz
@@ -964,10 +957,9 @@ sub Audit_Package {
                 $deb = 0;
             }
         }
-        my($matched) = 0;
-        my($dist);
-        foreach $dist (@{$Options{'realdists'}}) {
-            my($ver_pkg);
+        my $matched = 0;
+        foreach my $dist (@{$Options{'realdists'}}) {
+            my $ver_pkg;
             if ($src) {
                 $ver_pkg = 'source';
             } elsif ($deb) {
@@ -976,7 +968,7 @@ sub Audit_Package {
                 $ver_pkg = 'meta';
             }
 
-            my($dist_ver) = Get_Version($dist, $package, $ver_pkg);
+            my $dist_ver = Get_Version($dist, $package, $ver_pkg);
             next if (!defined($dist_ver)); # No version in specified dist
             $dist_ver = Strip_Epoch($dist_ver);
             if ($orig) { $dist_ver =~ s/-.+$//; }
@@ -996,14 +988,13 @@ sub Audit_Package {
         }
     }
 
-    foreach $file (@changes) {
+    foreach my $file (@changes) {
         $file =~ m/^[^_]+_([^_]+)_.+$/; # changes
-        my($version) = $1;
+        my $version = $1;
 
-        my($matched) = 0;
-        my($dist);
-        foreach $dist (@{$Options{'realdists'}}) {
-            my($dist_ver) = Get_Version($dist, $package, 'meta');
+        my $matched = 0;
+        foreach my $dist (@{$Options{'realdists'}}) {
+            my $dist_ver = Get_Version($dist, $package, 'meta');
             next if (!defined($dist_ver)); # No version in specified dist
             $dist_ver = Strip_Epoch($dist_ver);
             if ($version eq $dist_ver) { $matched = 1; }
@@ -1035,19 +1026,19 @@ sub Generate_Package {
     use DebPool::Logging qw(:functions :facility :level);
 
     my($changes_data, $arch) = @_;
-    my($source) = $changes_data->{'Source'};
-    my(@files) = @{$changes_data->{'Files'}};
-    my($pool_base) = PoolBasePath();
+    my $source = $changes_data->{'Source'};
+    my @files = @{$changes_data->{'Files'}};
+    my $pool_base = PoolBasePath();
     
     # Grab a temporary file.
 
     my($tmpfile_handle, $tmpfile_name) = tempfile();
 
-    my(@packages) = @{$changes_data->{'Binary'}};
+    my @packages = @{$changes_data->{'Binary'}};
 
-    my($package);
+    my $package;
 
-    foreach $package (@packages) {
+    foreach my $package (@packages) {
         # Construct a pattern to match the filename and nothing else.
         # This used to be an exact match using the source version, but
         # Debian's standards are sort of insane, and the version number
@@ -1055,17 +1046,15 @@ sub Generate_Package {
         # file (nor is it even something simple like "source version
         # without the epoch" -- it is more or less arbitrary, as long
         # as it is a well-formed version number).
-        my($filepat) = qr/^\Q${package}_\E.*\Q_${arch}.\Eu?deb/;
-        my($section) = Guess_Section($changes_data);
-        my($pool) = join('/', (PoolDir($source, $section), $source));
+        my $filepat = qr/^\Q${package}_\E.*\Q_${arch}.\Eu?deb/;
+        my $section = Guess_Section($changes_data);
+        my $pool = join('/', (PoolDir($source, $section), $source));
 
-        my($marker) = -1;
-        my($count) = 0;
-
+        my $marker = -1;
         # Step through each file, match against filename. Save matches
         # for later use.
 
-        for $count (0..$#files) {
+        for my $count (0..$#files) {
             if ($files[$count]->{'Filename'} =~ m/^$filepat$/) {
                 $marker = $count;
             }
@@ -1081,8 +1070,8 @@ sub Generate_Package {
 
         # Run Dpkg_Info to grab the dpkg --info data on the package.
 
-        my($file) = $files[$marker]->{'Filename'};
-        my($info) = Dpkg_Info("$Options{'pool_dir'}/$pool/$file");
+        my $file = $files[$marker]->{'Filename'};
+        my $info = Dpkg_Info("$Options{'pool_dir'}/$pool/$file");
 
         # Dump all of our data into the metadata tempfile.
 
@@ -1110,8 +1099,7 @@ sub Generate_Package {
         # All of the inter-package relationships go together, and any
         # one of them can potentially be empty (and omitted).
 
-        my($field);
-        foreach $field (@Relationship_Fields) {
+        foreach my $field (@Relationship_Fields) {
             if (defined($info->{$field})) {
                 print $tmpfile_handle "${field}: $info->{$field}\n";
             }
@@ -1147,15 +1135,14 @@ sub Generate_Source {
     use DebPool::Logging qw(:functions :facility :level);
 
     my($dsc, $dsc_data, $changes_data) = @_;
-    my($source) = $dsc_data->{'Source'};
-    my(@files) = @{$dsc_data->{'Files'}};
+    my $source = $dsc_data->{'Source'};
+    my @files = @{$dsc_data->{'Files'}};
     
     # Figure out the priority and section, using the DSC filename and
     # the Changes file data.
 
-    my($section, $priority);
-    my($filehr);
-    foreach $filehr (@{$changes_data->{'Files'}}) {
+    my ($section, $priority);
+    foreach my $filehr (@{$changes_data->{'Files'}}) {
         if ($filehr->{'Filename'} eq $dsc) {
             $section = $filehr->{'Section'};
             $priority = $filehr->{'Priority'};
@@ -1196,8 +1183,7 @@ sub Generate_Source {
 
     print $tmpfile_handle "Files:\n";
 
-    my($fileref);
-    foreach $fileref (@files) {
+    foreach my $fileref (@files) {
         print $tmpfile_handle " $fileref->{'MD5Sum'}";
         print $tmpfile_handle " $fileref->{'Size'}";
         print $tmpfile_handle " $fileref->{'Filename'}\n";
@@ -1219,19 +1205,17 @@ sub Generate_Source {
 
 sub Dpkg_Info {
     my($file) = @_;
-    my(%result);
+    my %result;
 
     # Grab the info from dpkg --info.
 
-    my(@info) = `/usr/bin/dpkg --info $file`;
-    my($smashed) = join('', @info);
+    my @info = `/usr/bin/dpkg --info $file`;
+    my $smashed = join('', @info);
 
     # Look for each of these fields in the info. All are single line values,
     # so the matching is fairly easy.
 
-    my($field);
-
-    foreach $field (@Info_Fields, @Relationship_Fields) {
+    foreach my $field (@Info_Fields, @Relationship_Fields) {
         if ($smashed =~ m/\n ${field}:\s+(\S.*)\n/) {
             $result{$field} = $1;
         }
@@ -1239,9 +1223,8 @@ sub Dpkg_Info {
 
     # And, finally, grab the description.
 
-    my($line);
-    my($found) = 0;
-    foreach $line (@info) {
+    my $found = 0;
+    foreach my $line (@info) {
         if ($found) {
             $line =~ s/^ //;
             $result{'Description'} .= $line;
@@ -1266,8 +1249,8 @@ sub Install_List {
 
     my($archive, $component, $architecture, $listfile, @zfiles) = @_;
 
-    my($dists_file_mode) = $Options{'dists_file_mode'};
-    my($inst_file) = "$Options{'dists_dir'}/";
+    my $dists_file_mode = $Options{'dists_file_mode'};
+    my $inst_file = "$Options{'dists_dir'}/";
     $inst_file .= Archfile($archive, $component, $architecture, 0);
 
     # Now install the file(s) into the appropriate place(s).
@@ -1304,7 +1287,7 @@ sub Guess_Section {
 
     my($changes_hashref) = @_;
 
-    my(@changes_files) = @{$changes_hashref->{'Files'}};
+    my @changes_files = @{$changes_hashref->{'Files'}};
     return $changes_files[0]->{'Section'};
 }
 

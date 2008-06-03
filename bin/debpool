@@ -32,10 +32,6 @@
 #
 #####
 
-# Put our private support module area into the search path
-
-use lib '/usr/share/debpool/perl5';
-
 # We always want to be careful about things...
 
 use strict;
@@ -112,38 +108,40 @@ if ($Options{'get_lock_path'}) {
 # Obtain a lockfile. We should never run more than one occurance; it's too
 # likely that we'd step on our own toes.
 
-if (!sysopen(LOCK_FILE, $Options{'lock_file'}, O_WRONLY|O_CREAT|O_EXCL, 0644)) {
+my ($lockfh, $statfh);
+
+if (!sysopen($lockfh, $Options{'lock_file'}, O_WRONLY|O_CREAT|O_EXCL, 0644)) {
     my($msg) = "Couldn't obtain lockfile '$Options{'lock_file'}': ";
     if (( ! -s $Options{'lock_file'} ) and
-       (open(LOCK_FILE, '>', $Options{'lock_file'}))) {
+       (open($lockfh, '>', $Options{'lock_file'}))) {
         # Empty file found for lock file
-        print LOCK_FILE "$$\n";
-        close(LOCK_FILE);
-    } elsif (open(LOCK_FILE, '<', $Options{'lock_file'}) &&
-      (my($pid) = <LOCK_FILE>)) {
+        print $lockfh "$$\n";
+        close($lockfh);
+    } elsif (open($lockfh, '<', $Options{'lock_file'}) &&
+      (my($pid) = <$lockfh>)) {
         chomp($pid);
-        if (open(STAT_FILE, '<', "/proc/$pid/stat") &&
-           (my($stat) = <STAT_FILE>)) {
+        if (open($statfh, '<', "/proc/$pid/stat") &&
+           (my($stat) = <$statfh>)) {
             if ($stat =~ m/debpool/) {
                 # debpool process was already started
                 $msg .= "debpool was already running with PID $pid\n";
-                close(LOCK_FILE);
-                close(STAT_FILE);
+                close($lockfh);
+                close($statfh);
                 Log_Message($msg, LOG_GENERAL, LOG_ERROR);
                 die $msg;
             }
         } else {
             # debpool wasn't running using the specified PID so close
             # the file and reopen it for overwriting.
-            close(LOCK_FILE);
-            if (!open(LOCK_FILE, '>', $Options{'lock_file'})) {
+            close($lockfh);
+            if (!open($lockfh, '>', $Options{'lock_file'})) {
                 $msg .= "debpool could not place new PID ";
                 $msg .= "in lock file.\n";
                 Log_Message($msg, LOG_GENERAL, LOG_ERROR);
                 die $msg;
             }
-            print LOCK_FILE "$$\n";
-            close(LOCK_FILE);
+            print $lockfh "$$\n";
+            close($lockfh);
         }
     } else {
         # Could not read PID from lockfile
@@ -152,8 +150,8 @@ if (!sysopen(LOCK_FILE, $Options{'lock_file'}, O_WRONLY|O_CREAT|O_EXCL, 0644)) {
         die $msg;
     }
 } else { # debpool wasn't running so create a lock
-    print LOCK_FILE "$$\n";
-    close(LOCK_FILE);
+    print $lockfh "$$\n";
+    close($lockfh);
 }
 
 if ($Options{'daemon'} && $Options{'use_inotify'}) {
@@ -187,8 +185,7 @@ Open_Databases();
 my(%rebuild) = ();
 
 if ($Options{'rebuild-files'}) {
-    my($dist);
-    foreach $dist (@{$Options{'realdists'}}) {
+    foreach my $dist (@{$Options{'realdists'}}) {
         $rebuild{$dist} = 1;
     }
 }
@@ -196,9 +193,7 @@ if ($Options{'rebuild-files'}) {
 # Go through each of the changes files we found, and process it. This is the
 # heart of things.
 
-my($changefile);
-
-foreach $changefile (@changefiles) {
+foreach my $changefile (@changefiles) {
     Log_Message("Processing changefile '$changefile'", LOG_GENERAL, LOG_INFO);
 
     # .dsc = .changes, minus the part after the last _, plus .dsc
@@ -215,18 +210,16 @@ foreach $changefile (@changefiles) {
     }
 
     my($with_source) = undef; # Upload with or without source?
-    my($temp);
 
-    for $temp (@{$changes_data->{'Architecture'}}) {
+    for my $temp (@{$changes_data->{'Architecture'}}) {
         if ('source' eq $temp) {
             $with_source = 1;
         }
     }
 
     my($has_orig) = undef; # Has an orig tarball?
-    my($filehr);
 
-    foreach $filehr (@{$changes_data->{'Files'}}) {
+    foreach my $filehr (@{$changes_data->{'Files'}}) {
         if ($filehr->{'Filename'} =~ /orig\.tar\.gz/) {
             $has_orig = 1;
         }
@@ -275,7 +268,7 @@ foreach $changefile (@changefiles) {
 
     my($valid) = 1;
 
-    foreach $filehr (@{$changes_data->{'Files'}}) {
+    foreach my $filehr (@{$changes_data->{'Files'}}) {
         if (!(Verify_MD5("$Options{'incoming_dir'}/$filehr->{'Filename'}",
                          $filehr->{'MD5Sum'}))) {
             $valid = undef;
@@ -294,7 +287,7 @@ foreach $changefile (@changefiles) {
     my($rejected) = undef;
 
     if ($with_source) {
-        foreach $filehr (@{$dsc_data->{'Files'}}) {
+        foreach my $filehr (@{$dsc_data->{'Files'}}) {
             # A bit of a special case here; if the Changes file lists an
             # orig tarball, we must *not* have one for that version in the
             # pool. If it doesn't, then we *must* have one. In either case,
@@ -371,7 +364,7 @@ foreach $changefile (@changefiles) {
             $rejected = 1;
             last; # Don't check other files, we just rejected
         }
-        foreach $filehr (@{$changes_data->{'Files'}}) {
+        foreach my $filehr (@{$changes_data->{'Files'}}) {
             my($file) = $filehr->{'Filename'};
             if (!(Verify_MD5($file, $filehr->{'MD5Sum'}))) {
                 $valid = undef;
@@ -411,11 +404,10 @@ foreach $changefile (@changefiles) {
     # Go through each distribution in the changes file, and decide whether
     # the package is valid for that distribution.
 
-    my($distribution, $realdist);
     my(@valid_dists);
 
-    foreach $distribution (@{$changes_data->{'Distribution'}}) {
-        $realdist = undef;
+    foreach my $distribution (@{$changes_data->{'Distribution'}}) {
+        my $realdist = undef;
 
         if (defined($Options{'virtual_dists'}->{$distribution})) {
             $realdist = $Options{'virtual_dists'}->{$distribution};
@@ -460,8 +452,7 @@ foreach $changefile (@changefiles) {
     # Install the package
 
     if (Install_Package($changefile, $changes_data, $dscfile, $dsc_data, \@valid_dists)) {
-        my($dist);
-        foreach $dist (@valid_dists) {
+        foreach my $dist (@valid_dists) {
             $rebuild{$dist} = 1;
         }
 
@@ -486,11 +477,9 @@ foreach $changefile (@changefiles) {
 # Regenerate {Packages,Sources}{,.gz} for distributions which need it. Also
 # rebuild Release files that need it, if we're doing them.
 
-my($dist, $section);
-
-foreach $dist (keys(%rebuild)) {
+foreach my $dist (keys(%rebuild)) {
     my(@rel_filelist) = ();
-    foreach $section (@{$Options{'sections'}}) {
+    foreach my $section (@{$Options{'sections'}}) {
         my(@archs) = @{$Options{'archs'}};
         @archs = grep(!/^all$/, @archs); # We don't build binary-all files.
 
@@ -718,6 +707,93 @@ unlink($Options{'lock_file'});
 Log_Message("Exiting.", LOG_GENERAL, LOG_DEBUG);
 
 exit(0);
+
+=head1 NAME
+
+debpool - pool-based Debian package archive manager
+
+=head1 SYNOPSIS
+
+B<debpool> [ I<options> ]
+
+=head1 DESCRIPTION
+
+B<debpool> is a utility for managing pool-based archives of Debian
+packages. It can be run by individual users, and/or under a dedicated
+system user configuration.
+
+=head1 OVERVIEW
+
+This manual page describes how to specify options for debpool when
+running debpool through the command line.
+
+=head1 USAGE
+
+For an option that enables/disables a feature for debpool (boolean
+type), simply use the option. For example, to enable daemon mode, run:
+
+B<debpool --daemon>
+
+For an option used to assign a value, use the option and specify the
+value to be used. For example, to specify an archive directory to use,
+run:
+
+B<debpool --archive_dir> I</path/to/dir>
+
+For an option that accepts multiple values (array type), use the
+option and specify the list of values to be used. For example, to
+specify the architectures debpool will create a layout for, run:
+
+B<debpool --archs i386 amd64 ...>
+
+Assigning multiple values for an option may also be done by using the
+option with a different value multiple times. For example, using the
+example with architectures, run:
+
+B<debpool --archs i386 --archs amd64 ...>
+
+For an option that uses hash values (hash types), use the option with
+a different hash value as many times as necessary. For example, to
+specify the distributions debpool should create a layout for, run:
+
+B<debpool --dists unstable=sid --dists experimental=experimental ...>
+
+=head1 OPTIONS
+
+See the L<DebPool::Config> manpage for details on all configuration
+options and their defaults.
+
+=head1 FILES
+
+=over 4
+
+=item F</etc/debpool/Config.pm>
+
+System defaults file.
+
+=item F<$HOME/.debpool/Config.pm>
+
+User-specific defaults file.
+
+=back
+
+=head1 BUGS
+
+Please submit any bugs relating to debpool to the Debian Bug Tracking
+System.
+
+=head1 SEE ALSO
+
+L<DebPool::Config>
+
+=head1 AUTHORS
+
+Copyright (c) Andres Mejia
+
+This manual page was written for the Debian project, but may be used
+by others.
+
+=cut
 
 __END__
 

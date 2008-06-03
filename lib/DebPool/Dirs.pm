@@ -141,20 +141,17 @@ sub Create_Tree {
 
     # Real distributions are the only ones that get directories.
 
-    my($dist);
-    foreach $dist (@{$Options{'realdists'}}) {
+    foreach my $dist (@{$Options{'realdists'}}) {
         if (!Tree_Mkdir("$dists_dir/$dist", $dists_dir_mode)) {
             return 0;
         }
 
-        my($section);
-        foreach $section (@{$Options{'sections'}}) {
+        foreach my $section (@{$Options{'sections'}}) {
             if (!Tree_Mkdir("$dists_dir/$dist/$section", $dists_dir_mode)) {
                 return 0;
             }
 
-            my($arch);
-            foreach $arch (@{$Options{'archs'}}) {
+            foreach my $arch (@{$Options{'archs'}}) {
                 my($target) = "$dists_dir/$dist/$section/";
                 if ('source' eq $arch) {
                     $target .= $arch;
@@ -172,7 +169,7 @@ sub Create_Tree {
     # Go through all of the distributions looking for those that should be
     # symlinks, and creating them if necessary.
 
-    foreach $dist (keys(%{$Options{'dists'}})) {
+    foreach my $dist (keys(%{$Options{'dists'}})) {
         # Check whether it should be a symlink. If so, make sure it is.
 
         if (!($dist eq $Options{'dists'}->{$dist})) { # Different names -> sym
@@ -194,6 +191,7 @@ sub Create_Tree {
     my($pool_dir) = $Options{'pool_dir'};
     my($pool_dir_mode) = $Options{'pool_dir_mode'};
 
+
     if (!Tree_Mkdir($pool_dir, $pool_dir_mode)) {
         return 0;
     }
@@ -201,8 +199,7 @@ sub Create_Tree {
     # We can only get away with this because Debian pool directories are
     # named in ASCII...
 
-    my($section);
-    foreach $section (@{$Options{'sections'}}) {
+    foreach my $section (@{$Options{'sections'}}) {
         next if $section =~ m/\s*\/debian-installer/;
         if (!Tree_Mkdir("$pool_dir/$section", $pool_dir_mode)) {
             return 0;
@@ -252,7 +249,7 @@ sub Scan_Changes {
 
     if (!opendir(INCOMING, $directory)) {
         $Error = "Couldn't open directory '$directory': $!";
-        return undef;
+        return;
     }
 
     # Perl magic - read the directory and grep it for *.changes all at one
@@ -276,29 +273,27 @@ sub Scan_All {
 
     if (!opendir(DIR, $directory)) {
         $Error = "Couldn't open directory '$directory'";
-        return undef;
+        return;
     }
 
-    my($direntry);
+
     my(@entries) = grep(!/^\./, readdir(DIR));
 
     my(@return);
 
-    foreach $direntry (@entries) {
+    foreach my $direntry (@entries) {
         if (-f "$directory/$direntry") {
             push(@return, $direntry);
         } elsif (-d "$directory/$direntry") {
             my($recurse) = Scan_All("$directory/$direntry");
 
             if (!defined($recurse)) { # $Error is already set.
-                return undef;
+                return;
             }
 
             # I'd like to use map(), but Perl makes stooopid guesses.
 
-            my($entry);
-
-            foreach $entry (@{$recurse}) {
+            foreach my $entry (@{$recurse}) {
                 push(@return, "$direntry/$entry");
             }
         }
@@ -363,7 +358,7 @@ sub Watch_Incoming {
             return @changes;
         }
     }
-    return undef;
+    return;
 }
 
 # Monitor_Incoming()
@@ -381,7 +376,7 @@ sub Monitor_Incoming {
     # further.
 
     if ($DebPool::Signal::Signal_Caught) {
-        return undef;
+        return;
     }
 
     if ($Options{'use_inotify'}) {
@@ -397,9 +392,9 @@ sub Monitor_Incoming {
             @stat = stat($Options{'incoming_dir'});
             if (!@stat) {
                 $Error = "Couldn't stat incoming_dir '$Options{'incoming_dir'}'";
-                return undef;
+                return;
             }
-            return undef if $DebPool::Signal::Signal_Caught;
+            return if $DebPool::Signal::Signal_Caught;
         } until ($stat[9] != $mtime);
         
         return Scan_Changes();
@@ -447,8 +442,7 @@ sub Strip_Subsection {
         return 'main';
     }
     
-    my($check_section);
-    foreach $check_section (@{$Options{'sections'}}) {
+    foreach my $check_section (@{$Options{'sections'}}) {
         if ($section =~ m/^$check_section(\/.+)?$/) {
             return $check_section;
         }

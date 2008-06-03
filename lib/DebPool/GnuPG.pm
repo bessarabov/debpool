@@ -196,7 +196,7 @@ sub Sign_Release {
 	else {
 	    $Error = "gpg terminated in an unknown way.";
 	}
-	return undef;
+	return;
     }
 
     # And we're done
@@ -212,10 +212,9 @@ sub Sign_Release {
 sub Strip_GPG {
     my(@text) = @_;
 
-    my($count);
     my($header, $firstblank, $sigstart, $sigend);
 
-    for $count (0..$#text) {
+    for my $count (0..$#text) {
         if ($text[$count] =~ m/^-----BEGIN PGP SIGNED MESSAGE-----$/) {
             $header = $count;
         } elsif (!defined($firstblank) && $text[$count] =~ m/^$/) {

@@ -133,7 +133,7 @@ sub Generate_Release_Triple {
 
     if (!opendir(RELDIR, $dirpath)) {
         $Error = "Couldn't open directory '$dirpath'.";
-        return undef;
+        return;
     }
 
     my(@dirfiles) = readdir(RELDIR);
@@ -156,13 +156,13 @@ sub Generate_Release_Triple {
         # large amount of data, but unfortunately, both Digest routines
         # require the entire thing at once.
 
-        if (!open(CK_FILE, '<', "${dirpath}/${ck_file}")) {
+        if (!open($ck_fh, '<', "${dirpath}/${ck_file}")) {
             $Error = "Couldn't open file '${dirpath}/${ck_file}' for reading.";
-            return undef;
+            return;
         }
 
-        my(@filetext) = <CK_FILE>;
-        close(CK_FILE);
+        my(@filetext) = <$ck_fh>;
+        close($ck_fh);
 
         # Now calculate the checksums and put them into the hashes.
 
@@ -248,8 +248,7 @@ sub Generate_Release_Dist {
     # we'll need later. This is mostly so that we can catch errors before
     # ever bothering to open a tempfile.
 
-    my($file);
-    for $file (@files) {
+    for my $file (@files) {
         my($fullfile) = "${dists_dir}/${archive}/${file}";
 
         # Now, for each file, generate MD5 and SHA1 checksums, and put them
@@ -258,12 +257,12 @@ sub Generate_Release_Dist {
         my(@stat) = stat($fullfile);
         my($size) = $stat[7];
     
-        if (!open(HASH_FILE, '<', $fullfile)) {
+        if (!open($hash_fh, '<', $fullfile)) {
             $Error = "Couldn't open file '${fullfile} for reading.";
-            return undef;
+            return;
         }
-        my(@filetext) = <HASH_FILE>;
-        close(HASH_FILE);
+        my(@filetext) = <$hash_fh>;
+        close($hash_fh);
 
         # Now calculate the checksums and put them into the hashes.
     
@@ -302,19 +301,19 @@ sub Generate_Release_Dist {
     # Now print MD5 and SHA1 checksum lists.
 
     print $tmpfile_handle "MD5Sum:\n";
-    foreach $file (@Checksums) {
+    foreach my $file (@Checksums) {
         printf $tmpfile_handle " %s %8d %s\n", $file->{'MD5'},
             $file->{'Size'}, $file->{'File'};
     }
 
     print $tmpfile_handle "SHA1:\n";
-    foreach $file (@Checksums) {
+    foreach my $file (@Checksums) {
         printf $tmpfile_handle " %s %8d %s\n", $file->{'SHA1'},
             $file->{'Size'}, $file->{'File'};
     }
 
     print $tmpfile_handle "SHA256:\n";
-    foreach $file (@Checksums) {
+    foreach my $file (@Checksums) {
         printf $tmpfile_handle " %s %8d %s\n", $file->{'SHA256'},
             $file->{'Size'}, $file->{'File'};
     }

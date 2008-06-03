@@ -109,21 +109,21 @@ our($Error);
 
 ### Constant functions - facility
 
-sub LOG_AUDIT() { 'AUDIT' }
-sub LOG_CONFIG() { 'CONFIG' }
-sub LOG_GENERAL() { 'GENERAL' }
-sub LOG_GPG() { 'GPG' }
-sub LOG_INSTALL() { 'INSTALL' }
-sub LOG_REJECT() { 'REJECT' }
-sub LOG_PARSE() { 'PARSE' }
+sub LOG_AUDIT { 'AUDIT' }
+sub LOG_CONFIG { 'CONFIG' }
+sub LOG_GENERAL { 'GENERAL' }
+sub LOG_GPG { 'GPG' }
+sub LOG_INSTALL { 'INSTALL' }
+sub LOG_REJECT { 'REJECT' }
+sub LOG_PARSE { 'PARSE' }
 
 ### Constant functions - level
 
-sub LOG_DEBUG() { 'DEBUG' }
-sub LOG_INFO() { 'INFO' }
-sub LOG_WARNING() { 'WARNING' }
-sub LOG_ERROR() { 'ERROR' }
-sub LOG_FATAL() { 'FATAL' }
+sub LOG_DEBUG { 'DEBUG' }
+sub LOG_INFO { 'INFO' }
+sub LOG_WARNING { 'WARNING' }
+sub LOG_ERROR { 'ERROR' }
+sub LOG_FATAL { 'FATAL' }
 
 ### Meaningful functions
 
@@ -151,16 +151,17 @@ sub Log_Message {
     # If we can't log to it, die with a message (on the off chance that we're
     # not in daemon mode, and the user will see it).
 
-    if (!open(LOG, ">>$Options{'log_file'}")) {
+    my $log_fh;
+    if (!open($log_fh, '>>', $Options{'log_file'})) {
         Close_Databases(); # If they were open
         unlink($Options{'lock_file'}); # In case we had one
 
         die "Couldn't write to log file '$Options{'log_file'}'.";
     }
 
-    print LOG strftime("%Y-%m-%d %H:%M:%S", localtime());
-    print LOG " [$facility/$level] $msg\n";
-    close(LOG);
+    print $log_fh strftime("%Y-%m-%d %H:%M:%S", localtime());
+    print $log_fh " [$facility/$level] $msg\n";
+    close($log_fh);
 }
 
 END {}
