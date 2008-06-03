@@ -786,9 +786,9 @@ System.
 
 L<DebPool::Config>
 
-=head1 AUTHORS
+=head1 AUTHOR
 
-Copyright (c) Andres Mejia
+Copyright (c) DebPool Developers <debpool-devel@lists.alioth.debian.org>
 
 This manual page was written for the Debian project, but may be used
 by others.
