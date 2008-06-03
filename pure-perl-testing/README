@@ -1,0 +1,3 @@
+This stuff here is mainly for testing ways to get debpool to run using nothing
+but Perl, Perl modules, and (hopefully at an extreme minimum) tools commonly
+found on any Unix system.

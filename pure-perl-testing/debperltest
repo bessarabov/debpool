@@ -1,0 +1,188 @@
+#!/usr/bin/perl -w
+
+use strict;
+use warnings;
+
+use Getopt::Long;
+
+my $previous;
+my $next;
+GetOptions ('p|previous=s' => \$previous,
+            'n|next=s' => \$next);
+
+if (($previous) and ($next)) {
+    print "Previous set to $previous -- Next set to $next\n";
+} else {
+    print "Need to specify 'previous' and 'next' options.\n";
+    exit 1;
+}
+
+# Method used to compare two revisions. This method will be implemented for
+# the Allow_Version() method in Packages.pm in the future.
+sub compare_versions {
+    my ($prevrev, $nextrev) = @_;
+    # Some variables that will carry us through this method
+    my $count = 0;
+    my $subreturn;
+    my @prevarray;
+    my @nextarray;
+    my $prevsize;
+    my $nextsize;
+    # First, let's determine if an epoch and/or debian revision was provided
+    # Let's also strip the upstream version from the revisions
+    my $prevepoch;
+    my $prevdeb;
+    my $nextepoch;
+    my $nextdeb;
+    if ($prevrev =~ m/^[\d]+:/) {
+        $prevepoch = $prevrev;
+        $prevepoch =~ s/^([\d]+:)(.*)/$1/;
+    }
+    if ($prevrev =~ m/-[a-zA-Z\d+.~]+$/) {
+        $prevdeb = $prevrev;
+        $prevdeb =~ s/(.*)(-[a-zA-Z\d+.~]+)$/$2/;
+    }
+    if ($nextrev =~ m/^[\d]+:/) {
+        $nextepoch = $nextrev;
+        $nextepoch =~ s/^([\d]+:)(.*)/$1/;
+    }
+    if ($nextrev =~ m/-[a-zA-Z\d+.~]+$/) {
+        $nextdeb = $nextrev;
+        $nextdeb =~ s/(.*)(-[a-zA-Z\d+.~]+)$/$2/;
+    }
+    $prevrev =~ s/^[\d]+:|-[a-zA-Z\d+.~]+$//;
+    $nextrev =~ s/^[\d]+:|-[a-zA-Z\d+.~]+$//;
+    # Now let's compare the revisions, start with the epochs
+    if (defined $prevepoch) {
+        @prevarray = split(//, $prevepoch);
+    }
+    if (defined $nextepoch) {
+        @nextarray = split(//, $nextepoch);
+    }
+    $prevsize = @prevarray;
+    $nextsize = @nextarray;
+    print "epoch part\n";
+    while (($count < $prevsize) or ($count < $nextsize)) {
+        if ($count >= $prevsize) {
+            $subreturn = compare_char("", $nextarray[$count]);
+            print "NULL .. $nextarray[$count] .. $subreturn\n";
+        } elsif ($count >= $nextsize) {
+            $subreturn = compare_char($prevarray[$count], "");
+            print "$prevarray[$count] .. NULL .. $subreturn\n";
+        } else {
+            $subreturn = compare_char($prevarray[$count], $nextarray[$count]);
+            print "$prevarray[$count] .. $nextarray[$count] .. $subreturn\n";
+        }
+        $count++;
+        if ($subreturn != 0) {
+            return $subreturn;
+        }
+    }
+    # Now let's compare the upstream revision part
+    $count = 0;
+    @prevarray = split(//, $prevrev);
+    @nextarray = split(//, $nextrev);
+    $prevsize = @prevarray;
+    $nextsize = @nextarray;
+    print "upstream part\n";
+    while (($count < $prevsize) or ($count < $nextsize)) {
+        if ($count >= $prevsize) {
+            $subreturn = compare_char("", $nextarray[$count]);
+            print "NULL .. $nextarray[$count] .. $subreturn\n";
+        } elsif ($count >= $nextsize) {
+            $subreturn = compare_char($prevarray[$count], "");
+            print "$prevarray[$count] .. NULL .. $subreturn\n";
+        } else {
+            $subreturn = compare_char($prevarray[$count], $nextarray[$count]);
+            print "$prevarray[$count] .. $nextarray[$count] .. $subreturn\n";
+        }
+        $count++;
+        if ($subreturn != 0) {
+            return $subreturn;
+        }
+    }
+    # Finally, compare the Debian revision part
+    $count = 0;
+    undef(@prevarray);
+    undef(@nextarray);
+    if (defined $prevdeb) {
+        @prevarray = split(//, $prevdeb);
+    }
+    if (defined $nextdeb) {
+        @nextarray = split(//, $nextdeb);
+    }
+    $prevsize = @prevarray;
+    $nextsize = @nextarray;
+    # Only compare the Debian revision part one or the other array is defined
+    print "debian part\n";
+    if ((@prevarray > 1) or (@nextarray > 1)) {
+        while (($count < $prevsize) or ($count < $nextsize)) {
+            if ($count >= $prevsize) {
+                $subreturn = compare_char("", $nextarray[$count]);
+                print "NULL .. $nextarray[$count] .. $subreturn\n";
+            } elsif ($count >= $nextsize) {
+                $subreturn = compare_char($prevarray[$count], "");
+                print "$prevarray[$count] .. NULL .. $subreturn\n";
+            } else {
+                $subreturn = compare_char($prevarray[$count], $nextarray[$count]);
+                print "$prevarray[$count] .. $nextarray[$count] .. $subreturn\n";
+            }
+            $count++;
+            if ($subreturn != 0) {
+                return $subreturn;
+            }
+        }
+    }
+    # At this point, we know that both revisions are equal
+    return $subreturn;
+}
+
+# Private method for use with compare_versions().
+# Compares two characters according to Debian policy. If the previous character
+# is greater than the next character, 1 is returned. If they are equal, 0 is
+# returned. Else, -1 is returned.
+sub compare_char {
+    my ($prevchar, $nextchar) = @_;
+    my $prevvalue = ord($prevchar);
+    my $nextvalue = ord($nextchar);
+    if ($prevchar =~ m/\.|\+|-|:|/) {
+        $prevvalue = ord($prevchar) + 126;
+    }
+    if ($nextchar =~ m/\.|\+|-|:|/) {
+        $nextvalue = ord($nextchar) + 126;
+    }
+    if ($prevchar =~ m/~/) {
+        $prevvalue = -1;
+    }
+    if ($nextchar =~ m/~/) {
+        $nextvalue = -1;
+    }
+    if ($prevvalue > $nextvalue) {
+        return 1;
+    } elsif ($prevvalue == $nextvalue) {
+        return 0;
+    } else {
+        return -1;
+    }
+}
+
+print "Test with dpkg\n";
+my $dpkg_bin = '/usr/bin/dpkg';
+if (system($dpkg_bin, '--compare-versions', $previous, 'lt', $next) == 0) {
+    print "Previous $previous is less than Next $next\n";
+} elsif (system($dpkg_bin, '--compare-versions', $previous, 'eq', $next) == 0) {
+    print "Previous $previous is equal Next $next\n";
+} elsif (system($dpkg_bin, '--compare-versions', $previous, 'gt', $next) == 0) {
+    print "Previous $previous is greater than Next $next\n";
+}
+print "\n";
+
+print "Test with a pure Perl way\n";
+my $comparereturn = compare_versions($previous, $next);
+if ($comparereturn == -1) {
+    print "Previous $previous is less than Next $next\n";
+} elsif ($comparereturn == 0) {
+    print "Previous $previous is equal Next $next\n";
+} else {
+    print "Previous $previous is greater than Next $next\n";
+}
