@@ -64,6 +64,8 @@ binary-indep: build install
 	dh_installdocs
 	dh_installman DebPool::Config.5
 	dh_installchangelogs
+	dh_installinit
+	dh_installlogrotate
 	dh_perl
 	dh_compress
 	dh_fixperms
