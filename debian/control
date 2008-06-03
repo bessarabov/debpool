@@ -12,8 +12,8 @@ DM-Upload-Allowed: yes
 
 Package: debpool
 Architecture: all
-Depends: ${perl:Depends}
-Recommends: gnupg, libdigest-sha-perl, libproc-daemon-perl, liblinux-inotify2-perl, libcompress-zlib-perl
+Depends: ${perl:Depends}, liblinux-inotify2-perl
+Recommends: gnupg, libdigest-sha-perl, libproc-daemon-perl, libcompress-zlib-perl
 Description: pool-based Debian package archiver
  DebPool is a package archive maintenance utility designed with a goal of
  removing any dependency on code not shipped as part of the core Debian
