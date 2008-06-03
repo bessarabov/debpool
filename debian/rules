@@ -14,15 +14,22 @@ export PERL_MM_USE_DEFAULT=1
 PERL   ?= /usr/bin/perl
 PACKAGE = $(shell dh_listpackages)
 TMP     = $(CURDIR)/debian/$(PACKAGE)
+DEBPOOL_VERSION = $(shell dpkg-parsechangelog | grep -e '^Version:' | cut -d ' ' -f 2)
 
 build: build-stamp
 build-stamp:
 	dh_testdir
 	# Add commands to compile the package here
 	$(PERL) Makefile.PL INSTALLDIRS=vendor \
-        VERSION=$(shell dpkg-parsechangelog | grep -e '^Version:' | cut -d ' ' -f 2)
+        VERSION=$(DEBPOOL_VERSION)
 	$(MAKE)
 	# $(MAKE) test
+	pod2man --name="DebPool::Config" \
+		--center="DebPool Configuration" \
+		--release="debpool v$(DEBPOOL_VERSION)" \
+		--section=5 \
+		lib/DebPool/Config.pm \
+		DebPool::Config.5
 	touch $@
 
 clean:
@@ -30,10 +37,11 @@ clean:
 	dh_testroot
 	dh_clean build-stamp install-stamp
 	# Add commands to clean up after the build process here
+	rm -f DebPool::Config.5
 	[ ! -f Makefile ] || $(MAKE) realclean
 
-install: install-stamp
-install-stamp: build-stamp
+install: build install-stamp
+install-stamp:
 	dh_testdir
 	dh_testroot
 	dh_clean -k
@@ -54,6 +62,7 @@ binary-indep: build install
 	dh_testroot
 	dh_installexamples examples/*
 	dh_installdocs
+	dh_installman DebPool::Config.5
 	dh_installchangelogs
 	dh_perl
 	dh_compress
