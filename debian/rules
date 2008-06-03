@@ -19,7 +19,8 @@ build: build-stamp
 build-stamp:
 	dh_testdir
 	# Add commands to compile the package here
-	$(PERL) Makefile.PL INSTALLDIRS=vendor
+	$(PERL) Makefile.PL INSTALLDIRS=vendor \
+        VERSION=$(shell dpkg-parsechangelog | grep -e '^Version:' | cut -d ' ' -f 2)
 	$(MAKE)
 	# $(MAKE) test
 	touch $@
