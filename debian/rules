@@ -30,6 +30,12 @@ build-stamp:
 		--section=5 \
 		lib/DebPool/Config.pm \
 		DebPool::Config.5
+	pod2man --name="debpool" \
+		--center="debpool" \
+		--release="debpool v$(DEBPOOL_VERSION)" \
+		--section=1 \
+		bin/debpool \
+		debpool.1
 	touch $@
 
 clean:
@@ -37,7 +43,7 @@ clean:
 	dh_testroot
 	dh_clean build-stamp install-stamp
 	# Add commands to clean up after the build process here
-	rm -f DebPool::Config.5
+	rm -f DebPool::Config.5 debpool.1
 	[ ! -f Makefile ] || $(MAKE) realclean
 
 install: build install-stamp
@@ -62,7 +68,7 @@ binary-indep: build install
 	dh_testroot
 	dh_installexamples examples/*
 	dh_installdocs
-	dh_installman DebPool::Config.5
+	dh_installman DebPool::Config.5 debpool.1
 	dh_installchangelogs
 	dh_installinit
 	dh_installlogrotate

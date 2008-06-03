@@ -97,7 +97,7 @@ debpool (0.3.2) experimental; urgency=low
   * Added a test script to begin changing debpool into a pure Perl program.
   * Change AUTHOR field of Makefile.PL to Debpool Developer's mailing list.
   * Supply VERSION field when building package based on changelog.
-  * Install DebPool::Config manpage in section 5.
+  * Use pod2man to generate manpages.
   * Change AUTHOR field in manpages to Debpool Developer's mailing list.
 
  -- Andres Mejia <mcitadel@gmail.com>  Mon, 02 Jun 2008 22:54:17 -0700

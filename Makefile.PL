@@ -5,6 +5,7 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
     NAME              => 'DebPool',
     EXE_FILES         => [qw(bin/debpool)],
+    INSTALLMAN1DIR    => 'none',
     INSTALLMAN3DIR    => 'none',
     PREREQ_PM         => {}, # e.g., Module::Name => 1.1
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
