@@ -100,8 +100,9 @@ debpool (0.3.4) experimental; urgency=low
   * Use pod2man to generate manpages.
   * Change AUTHOR field in manpages to Debpool Developer's mailing list.
   * Fixed errors in Gzip.pm and Release.pm.
+  * Add option to specify date when generating man pages.
 
- -- Andres Mejia <mcitadel@gmail.com>  Fri, 19 Sep 2008 17:37:24 -0400
+ -- Andres Mejia <mcitadel@gmail.com>  Fri, 19 Sep 2008 17:46:51 -0400
 
 debpool (0.2.3) experimental; urgency=low
 
