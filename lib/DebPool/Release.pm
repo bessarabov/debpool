@@ -257,7 +257,8 @@ sub Generate_Release_Dist {
     
         my(@stat) = stat($fullfile);
         my($size) = $stat[7];
-    
+
+        my $hash_fh;
         if (!open($hash_fh, '<', $fullfile)) {
             $Error = "Couldn't open file '${fullfile} for reading.";
             return;
