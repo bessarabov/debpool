@@ -908,6 +908,8 @@ Default value: $ENV{'HOME'}.'/.debpool/debpool.log';
 $Options{'log_file'} = $ENV{'HOME'}.'/.debpool/debpool.log';
 $OptionDefs{'log_file'} = 'log_file=s';
 
+=back
+
 =head2 Misc. configuration
 
 These are values which don't particularly fit into any of the other

@@ -156,6 +156,7 @@ sub Generate_Release_Triple {
         # large amount of data, but unfortunately, both Digest routines
         # require the entire thing at once.
 
+        my $ck_fh;
         if (!open($ck_fh, '<', "${dirpath}/${ck_file}")) {
             $Error = "Couldn't open file '${dirpath}/${ck_file}' for reading.";
             return;

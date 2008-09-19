@@ -1,4 +1,4 @@
-debpool (0.3.3) experimental; urgency=low
+debpool (0.3.4) experimental; urgency=low
 
   [ Hilko Bengen ]
   * Performed some code cleanups avoid the most serious Perl::Critic
@@ -99,8 +99,9 @@ debpool (0.3.3) experimental; urgency=low
   * Supply VERSION field when building package based on changelog.
   * Use pod2man to generate manpages.
   * Change AUTHOR field in manpages to Debpool Developer's mailing list.
+  * Fixed errors in Gzip.pm and Release.pm.
 
- -- Andres Mejia <mcitadel@gmail.com>  Fri, 19 Sep 2008 14:28:49 -0400
+ -- Andres Mejia <mcitadel@gmail.com>  Fri, 19 Sep 2008 17:37:24 -0400
 
 debpool (0.2.3) experimental; urgency=low
 
