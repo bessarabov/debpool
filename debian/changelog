@@ -100,7 +100,7 @@ debpool (0.3.3) experimental; urgency=low
   * Use pod2man to generate manpages.
   * Change AUTHOR field in manpages to Debpool Developer's mailing list.
 
- -- Andres Mejia <mcitadel@gmail.com>  Mon, 02 Jun 2008 22:54:17 -0700
+ -- Andres Mejia <mcitadel@gmail.com>  Fri, 19 Sep 2008 14:28:49 -0400
 
 debpool (0.2.3) experimental; urgency=low
 
