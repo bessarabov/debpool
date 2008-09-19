@@ -1,4 +1,4 @@
-debpool (0.3.2) experimental; urgency=low
+debpool (0.3.3) experimental; urgency=low
 
   [ Hilko Bengen ]
   * Performed some code cleanups avoid the most serious Perl::Critic
@@ -58,7 +58,7 @@ debpool (0.3.2) experimental; urgency=low
     + Needs libdigest-sha-perl so changed debian/control accordingly.
   * Fixed problem where reuploading an orig tarball would be rejected
     even with the 'rollback' option set.
-  * Bumped Standards-Version to 3.7.3.
+  * Bumped Standards-Version to 3.8.0.
     + Removed 'binary-arch' target in debian/rules to silence new lintian
       warning.
   * Use $ENV{'HOME'} instead of '/home/user' for specifying home directory
