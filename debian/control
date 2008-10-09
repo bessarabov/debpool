@@ -26,7 +26,7 @@ Description: pool-based Debian package archiver
    * Verifying package signatures (requires gnupg).
    * Signing release files (requires Release files and gnupg).
    * Running in single-pass or daemon modes.
-   * Process incoming packages using Inotify (requires liblinux-inotify2-perl)
+   * Process incoming packages using Inotify.
  .
  DebPool is intended to be a lightweight replacement for the full Debian
  archival scripts, in the tradition of debarchive and mini-dinstall, but

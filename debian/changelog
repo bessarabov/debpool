@@ -1,4 +1,4 @@
-debpool (0.3.4) experimental; urgency=low
+debpool (0.3.5) experimental; urgency=low
 
   [ Hilko Bengen ]
   * Performed some code cleanups avoid the most serious Perl::Critic
@@ -30,7 +30,7 @@ debpool (0.3.4) experimental; urgency=low
     + Closes: #350503
   * Fixed problem with extracting information from wrong deb file.
     + Thanks Julien Valroff. Closes: #310320
-  * Fixed bad instructions in README.Users. Closes: #408105
+  * Changed instructions in README.User. Closes: #408105
     + Thanks Eddy Petrișor.
   * Fixed jumbled checksum lists problem. Closes: #415323
     + Thanks Magnus Holmgren.
@@ -46,7 +46,7 @@ debpool (0.3.4) experimental; urgency=low
     for multiple distributions. Closes: #455439
   * Have debpool check for Proc::Daemon before attempting to run as daemon.
     + Closes: #455449
-  * Have debpool handle bzip2 compression as well as gzip in dynamical fasion.
+  * Have debpool handle bzip2 compression as well as gzip in dynamical fashion.
     + Thanks Magnus Holmgren.
     + Compression interactions will be supported through gzip and bzip2
       packages.
@@ -59,7 +59,7 @@ debpool (0.3.4) experimental; urgency=low
   * Fixed problem where reuploading an orig tarball would be rejected
     even with the 'rollback' option set.
   * Bumped Standards-Version to 3.8.0.
-    + Removed 'binary-arch' target in debian/rules to silence new lintian
+    + Fixed 'binary-arch' target in debian/rules to silence new lintian
       warning.
   * Use $ENV{'HOME'} instead of '/home/user' for specifying home directory
     through environment variable in Config.pm.
@@ -72,7 +72,7 @@ debpool (0.3.4) experimental; urgency=low
   * Changed copyright format, included myself in copyright.
   * Removed LICENSE file, as it was redundant to debian/copyright.
   * Changed Maintainer to use debpool developer's email.
-    + Added Joel Aelwyn in Uploaders field.
+    + Added most active developers to Uploaders field.
   * Changed default log path of $ENV{'HOME'}.'/.debpool/DebPool.log' to
     $ENV{'HOME'}.'/.debpool/debpool.log'.
   * Fixed wrong option used in debpool. Closes: #368554
