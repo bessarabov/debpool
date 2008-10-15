@@ -1,4 +1,4 @@
-debpool (0.3.5) experimental; urgency=low
+debpool (0.3.6) experimental; urgency=low
 
   [ Hilko Bengen ]
   * Performed some code cleanups avoid the most serious Perl::Critic
@@ -92,7 +92,6 @@ debpool (0.3.5) experimental; urgency=low
     + Thanks Alexei Chetroi.
   * Setup a user configuration directory at $ENV{'HOME'}/.debpool if one
     doesn't exist.
-  * Added 'DM-Upload-Allowed: yes' field.
   * Support parsing changes files that are format 1.7 or 1.8. Closes: #481861
   * Added a test script to begin changing debpool into a pure Perl program.
   * Change AUTHOR field of Makefile.PL to Debpool Developer's mailing list.
@@ -102,8 +101,9 @@ debpool (0.3.5) experimental; urgency=low
   * Fixed errors in Gzip.pm and Release.pm.
   * Add option to specify date when generating man pages.
   * Updated TODO list.
+  * Bumped debhelper build depends to (>= 5).
 
- -- Andres Mejia <mcitadel@gmail.com>  Wed, 15 Oct 2008 14:50:17 -0400
+ -- Andres Mejia <mcitadel@gmail.com>  Wed, 15 Oct 2008 15:01:18 -0400
 
 debpool (0.2.3) experimental; urgency=low
 

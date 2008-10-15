@@ -4,11 +4,10 @@ Priority: extra
 Maintainer: DebPool Developers <debpool-devel@lists.alioth.debian.org>
 Uploaders: Andres Mejia <mcitadel@gmail.com>, Magnus Holmgren <holmgren@lysator.liu.se>, Hilko Bengen <bengen@debian.org>
 Standards-Version: 3.8.0
-Build-Depends: debhelper (>= 4)
+Build-Depends: debhelper (>= 5)
 Vcs-Git: git://git.debian.org/git/debpool/debpool.git
 Vcs-Browser: http://git.debian.org/?p=debpool/debpool.git
 Homepage: http://wiki.debian.org/debpool
-DM-Upload-Allowed: yes
 
 Package: debpool
 Architecture: all
