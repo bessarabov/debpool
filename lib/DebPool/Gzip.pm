@@ -109,6 +109,7 @@ sub Gzip_File {
 
     # Open the source file so that we have it available.
 
+    my $source_fh;
     if (!open($source_fh, '<', $file)) {
         $Error = "Couldn't open source file '$file': $!";
         return;

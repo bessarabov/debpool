@@ -1,10 +1,10 @@
 Basic instructions for setting up a system-wide debpool archive with a
-debpool user/group:
+'debpool' user/group:
 
 1. Create a debpool user and group by using the command:
 
-   adduser --system --group --shell /bin/bash
-   --gecos 'Debian Pool Manager' debpool
+   adduser --system --group --shell /bin/bash \
+      --gecos 'Debian Pool Manager' debpool
 
    (Note that the command should be entered on one line; it is broken into
    two parts for the ease of reading).
@@ -13,9 +13,8 @@ debpool user/group:
    must create a directory where you want the archive to be placed, and set
    it's user/group appropriately. For example:
 
-   sudo mkdir /export/debpool
-   sudo chown debpool:debpool /export/debpool
-   sudo chmod a+rx /export/debpool
+   mkdir /srv/debpool
+   chown debpool:debpool /srv/debpool
 
    If you do wish to use /var/cache/debpool, it will need to be made
    accessible to the debpool user and group. The only supported method of
@@ -23,45 +22,12 @@ debpool user/group:
 
    dpkg-statoverride --update --add debpool debpool 0755 /var/cache/debpool
 
-3. Create a logfile directory for debpool. The two most common choices are
-   /var/log/debpool (which mimics normal "system" log behavior), or
-   /home/debpool/.debpool (which mimics user-installation log behavior
-   on a default Debian system setup). Note this location for use in step 4.
-
-   For example:
-
-   sudo touch /var/log/debpool
-   sudo chown debpool:debpool /var/log/debpool
-   sudo chmod a+rx /var/log/debpool
-
-4. Edit /etc/debpool/Config.pm. The following items are of particular note:
+3. Edit /etc/debpool/Config.pm. The following item is of particular note:
 
    * archive-dir (the archive directory chosen in step 2)
      - You may wish to double-check the *_mode settings as well
-   * log_file (should reside in the directory chosen in step 3)
 
    Run debpool once, to check that all of your configuration values are
    correct, and to create the directory structure. For example:
 
-   sudo su - debpool /usr/bin/debpool
-
-5. Edit the crontab for user debpool, using the command:
-
-   sudo crontab -u debpool -e
-
-   You should add one of the following two sets of crontab entries to the
-   file, depending on how you want to run debpool:
-
-   (Periodic mode; example fires off hourly, at 13 minutes past the hour)
-
-   @reboot         /usr/bin/debpool --nodaemon
-   13 *   * * *    /usr/bin/debpool --nodaemon
-
-   (Daemon mode; fire off only on restart. Note that this should all be one
-   line, without the \, prefferably)
-
-   @reboot         /usr/bin/debpool --daemon
-
-   Note that the command line options given here will override any other
-   configurations, including those found in /etc/debpool/Config.pm,
-   ~/.debpool/Config.pm, and the default configurations.
+   su - debpool /usr/bin/debpool

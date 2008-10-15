@@ -156,6 +156,7 @@ sub Generate_Release_Triple {
         # large amount of data, but unfortunately, both Digest routines
         # require the entire thing at once.
 
+        my $ck_fh;
         if (!open($ck_fh, '<', "${dirpath}/${ck_file}")) {
             $Error = "Couldn't open file '${dirpath}/${ck_file}' for reading.";
             return;
@@ -256,7 +257,8 @@ sub Generate_Release_Dist {
     
         my(@stat) = stat($fullfile);
         my($size) = $stat[7];
-    
+
+        my $hash_fh;
         if (!open($hash_fh, '<', $fullfile)) {
             $Error = "Couldn't open file '${fullfile} for reading.";
             return;
