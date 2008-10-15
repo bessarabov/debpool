@@ -69,7 +69,8 @@ debpool (0.3.6) experimental; urgency=low
     could not be overridden.
   * Wrote a proper manpage for debpool.
   * Minor edit in description for DebPool::Config.
-  * Changed copyright format, included myself in copyright.
+  * Changed copyright format, included myself in copyright. It uses the format
+    proposed in http://wiki.debian.org/Proposals/CopyrightFormat.
   * Removed LICENSE file, as it was redundant to debian/copyright.
   * Changed Maintainer to use debpool developer's email.
     + Added most active developers to Uploaders field.
@@ -103,7 +104,7 @@ debpool (0.3.6) experimental; urgency=low
   * Updated TODO list.
   * Bumped debhelper build depends to (>= 5).
 
- -- Andres Mejia <mcitadel@gmail.com>  Wed, 15 Oct 2008 15:01:18 -0400
+ -- Andres Mejia <mcitadel@gmail.com>  Wed, 15 Oct 2008 15:35:31 -0400
 
 debpool (0.2.3) experimental; urgency=low
 
