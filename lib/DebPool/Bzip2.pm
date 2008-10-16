@@ -5,7 +5,7 @@ package DebPool::Bzip2;
 # DebPool::Bzip2 - Module for handling Bzip2 interactions
 #
 # Copyright 2003-2004 Joel Aelwyn. All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
 # are met:
@@ -44,11 +44,6 @@ use strict;
 use warnings;
 
 use POSIX; # WEXITSTATUS
-
-# Needed for open2()
-
-use Fcntl;
-use IPC::Open2;
 
 ### Module setup
 
@@ -100,59 +95,55 @@ our($Error);
 
 sub Bzip2_File {
     use DebPool::Logging qw(:functions :facility :level);
+    use Compress::Bzip2;
 
     my($file) = @_;
 
     # Open a secure tempfile to write the compressed data into
 
-    my($tmpfile) = new File::Temp( SUFFIX => '.bz2', UNLINK => 0 );
-
-    # Open the source file so that we have it available.
-
-    my $source_fh;
-    if (!open($source_fh, '<', $file)) {
-        $Error = "Couldn't open source file '$file': $!";
-        return;
+    my($tmpfile) = new File::Temp( SUFFIX => '.bz2' );
+    my $bz = bzopen($tmpfile, 'wb9');
+    if (!$bz) {
+        $Error = "Couldn't initialize compression library: " . $bzerrno;
+        return undef;
     }
 
-    # We are go for main engine start
+    # Open the source file so that we have it available.
+    if (!open(SOURCE, '<', $file)) {
+        $Error = "Couldn't open source file '$file': $!";
+        return undef;
+    }
 
-    my(@args) = ('--best', '--force', '--stdout');
-
-    my($bzip2_pid) = open2(*BZIP2_IN, *BZIP2_OUT, '/bin/bzip2', @args);
-
-    my($child_pid);
-    if ($child_pid = fork) { # In the parent
-        # Send all the data to Bzip2;
-
-        close(BZIP2_IN);
-        close($tmpfile);
-
-        print BZIP2_OUT <$source_fh>;
-        close(BZIP2_OUT);
-        close($source_fh);
-
-        waitpid($child_pid, 0);
-        waitpid($bzip2_pid, 0);
-    } else { # In the child - we hope
-        if (!defined($child_pid)) {
-            die "Couldn't fork: $!\n";
+    while (1) {
+        my $buffer;
+        my $bytesread = read SOURCE, $buffer, 4096;
+        if (!defined $bytesread) {
+            $Error = "Error reading from '$file': $!";
+            close SOURCE;
+            return undef;
         }
+        last if $bytesread == 0;
+        my $byteswritten = $bz->bzwrite($buffer);
+        if ($byteswritten < $bytesread) {
+            $Error = "Error bzwriting to temporary file: " . $bz->bzerror;
+            close SOURCE;
+            return undef;
+        }
+    }
 
-        # Read back the results, and print them into the tempfile.
+    my $bzflush = $bz->bzflush(BZ_FINISH);
 
-        close(BZIP2_OUT);
-        close($source_fh);
-
-        print $tmpfile <BZIP2_IN>;
-        close(BZIP2_IN);
-        close($tmpfile);
-
-        exit(0);
+    # BZ_OK and BZ_STREAM_END are ok
+    if (($bzflush != BZ_OK) && ($bzflush != BZ_STREAM_END)) {
+        $Error = "Error flushing compressed file: " . $bz->bzerror;
+        close SOURCE;
+        return undef;
     }
 
     # And we're done
-
+    close SOURCE;
+    $bz->bzclose;
+    $tmpfile->unlink_on_destroy(0);
     return $tmpfile->filename;
 }
 
@@ -164,10 +155,9 @@ sub Compress_File {
     my $self = shift;
     my $tempname = Bzip2_File(@_);
     if ($tempname) {
-	$self->{'ERROR'} = undef;
-    }
-    else {
-	$self->{'ERROR'} = $Error;
+        $self->{'ERROR'} = undef;
+    } else {
+        $self->{'ERROR'} = $Error;
     }
     $tempname;
 }

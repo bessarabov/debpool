@@ -56,15 +56,8 @@ use DebPool::Signal qw(:functions :vars); # Handle signals
 
 if ($Options{'daemon'}) {
     Log_Message("Trying to enter daemon mode.", LOG_GENERAL, LOG_INFO);
-
-    if (eval{ require Proc::Daemon; }) {
-        Proc::Daemon::Init();
-        Log_Message("Now running as a daemon.", LOG_GENERAL, LOG_INFO);
-    } else {
-        print "ERROR: Running as a daemon requires installation of libproc-daemon-perl.\n";
-        Log_Message("Running as a daemon requires installation of libproc-daemon-perl.", LOG_GENERAL, LOG_ERROR);
-        exit 1;
-    }
+    Proc::Daemon::Init();
+    Log_Message("Now running as a daemon.", LOG_GENERAL, LOG_INFO);
 }
 
 # Set up a directory for debpool in the user's HOME directory, even if we're

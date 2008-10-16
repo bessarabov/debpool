@@ -23,11 +23,6 @@ Features, fixes, and other stuff to be done.
 * Implement package migration between different sections.
   - For example, migration from unstable to testing.
 
-(compression)
-
-* Use Compress::Zlib and Compress::Bzip2 to create bzip2 and gzip Packages and
-  Sources files.
-
 (config file)
 
 * Perhaps change the name of config file to debpoolrc.

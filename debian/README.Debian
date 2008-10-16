@@ -7,3 +7,19 @@ Important notes about using debpool:
 
 * For setting up signature verification or Release signing, please see the
   README.GnuPG file.
+
+Dependencies:
+
+* One of the goals of debpool is to keep the amount of dependencies down to a
+  minimum. The idea with this is so debpool would be able to run on different
+  ports of Debian (such as on freebsd). With this in mind, the dependencies for
+  debpool are essentially Perl, other Perl modules, and a C compiler.
+
+  With other Perl modules, careful consideration is taken to pick out a module
+  that isn't too complex. For example, libproc-daemon-perl depends solely on Perl,
+  which is why it is allowed as a dependency. libcompress-bzip2-perl depends on
+  Perl, libc, and libbz2. The dependencies of Perl and libc are ok. The
+  dependency of libbz2 had to be checked further. It turned out that libbz2
+  just needs libc to run and gcc to build (aside from texinfo for documentation)
+  therefore in this case, libcompress-bzip2-perl was allowed as a dependency for
+  debpool.

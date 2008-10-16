@@ -5,7 +5,7 @@ package DebPool::Gzip;
 # DebPool::Gzip - Module for handling Gzip interactions
 #
 # Copyright 2003-2004 Joel Aelwyn. All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
 # are met:
@@ -44,11 +44,6 @@ use strict;
 use warnings;
 
 use POSIX; # WEXITSTATUS
-
-# Needed for open2()
-
-use Fcntl;
-use IPC::Open2;
 
 ### Module setup
 
@@ -95,63 +90,61 @@ our($Error);
 
 # Gzip_File($file)
 #
-# Generates a gzipped version of $file using gzip, and returns the filename.
-# Returns undef (and sets $Error) on failure.
+# Generates a gzipped version of $file using Compress::Zlib, and returns the
+# filename. Returns undef (and sets $Error) on failure.
 
 sub Gzip_File {
     use DebPool::Logging qw(:functions :facility :level);
+    use Compress::Zlib;
 
     my($file) = @_;
 
     # Open a secure tempfile to write the compressed data into
 
-    my($tmpfile) = new File::Temp( SUFFIX => '.gz', UNLINK => 0 );
-
-    # Open the source file so that we have it available.
-
-    my $source_fh;
-    if (!open($source_fh, '<', $file)) {
-        $Error = "Couldn't open source file '$file': $!";
-        return;
+    my($tmpfile) = new File::Temp( SUFFIX => '.gz' );
+    my $gz = gzopen($tmpfile, 'wb9');
+    if (!$gz) {
+        $Error = "Couldn't initialize compression library: $gzerrno";
+        return undef;
     }
 
-    # We are go for main engine start
+    # Open the source file so that we have it available.
+    if (!open(SOURCE, '<', $file)) {
+        $Error = "Couldn't open source file '$file': $!";
+        return undef;
+    }
 
-    my(@args) = ('--best', '--force', '--stdout');
-
-    my($gzip_pid) = open2(*GZIP_IN, *GZIP_OUT, '/bin/gzip', @args);
-
-    my($child_pid);
-    if ($child_pid = fork) { # In the parent
-        # Send all the data to Gzip;
-
-        close(GZIP_IN);
-        close($tmpfile);
-
-        print GZIP_OUT <$source_fh>;
-        close(GZIP_OUT);
-        close($source_fh);
-
-        waitpid($child_pid, 0);
-        waitpid($gzip_pid, 0);
-    } else { # In the child - we hope
-        if (!defined($child_pid)) {
-            die "Couldn't fork: $!\n";
+    while (1) {
+        my $buffer;
+        my $bytesread = read SOURCE, $buffer, 4096;
+        if (!defined $bytesread) {
+            $Error = "Error reading from '$file': $!";
+            close SOURCE;
+            return undef;
         }
+        last if $bytesread == 0;
+        my $byteswritten = $gz->gzwrite($buffer);
+        if ($byteswritten < $bytesread) {
+            $Error = "Error gzwriting to temporary file: " . $gz->gzerror;
+            close SOURCE;
+            return undef;
+        }
+    }
 
-        # Read back the results, and print them into the tempfile.
+    my $gzflush = $gz->gzflush(Z_FINISH);
 
-        close(GZIP_OUT);
-        close($source_fh);
-
-        print $tmpfile <GZIP_IN>;
-        close(GZIP_IN);
-        close($tmpfile);
-
-        exit(0);
+    # zlib documentation says that Z_OK and Z_STREAM_END are ok
+    if (($gzflush != Z_OK) && ($gzflush != Z_STREAM_END)) {
+        $Error = "Error flushing compressed file: " . $gz->gzerror;
+        print "$Error\n";
+        close SOURCE;
+        return undef;
     }
 
     # And we're done
+    close SOURCE;
+    $gz->gzclose;
+    $tmpfile->unlink_on_destroy(0);
     return $tmpfile->filename;
 }
 
@@ -163,10 +156,9 @@ sub Compress_File {
     my $self = shift;
     my $tempname = Gzip_File(@_);
     if ($tempname) {
-	$self->{'ERROR'} = undef;
-    }
-    else {
-	$self->{'ERROR'} = $Error;
+        $self->{'ERROR'} = undef;
+    } else {
+        $self->{'ERROR'} = $Error;
     }
     $tempname;
 }

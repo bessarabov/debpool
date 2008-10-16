@@ -1,3 +1,19 @@
+debpool (0.3.8) experimental; urgency=low
+
+  * Use Compress::Zlib and Compress::Bzip2 to create bzip2 and gzip Packages and
+    Sources files.
+    + Adding Depends of libcompress-bzip2-perl.
+    + (Closes: #502454)
+  * Drop liblinux-inotify2-perl to Recommends. It is not necessary to use
+    inotify and this would allow users of non-Linux ports of debian to use
+    debpool.
+  * Bumped libproc-daemon-perl up to depends.
+    + Changed debpool to not check for existence of Proc::Daemon, since it will
+      now be installed by default.
+  * Write an entry about dependencies in the README.Debian file.
+
+ -- Andres Mejia <mcitadel@gmail.com>  Thu, 16 Oct 2008 16:55:37 -0400
+
 debpool (0.3.7) experimental; urgency=low
 
   * Removed unnecessary comments from debian/rules.
