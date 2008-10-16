@@ -56,6 +56,7 @@ use DebPool::Signal qw(:functions :vars); # Handle signals
 
 if ($Options{'daemon'}) {
     Log_Message("Trying to enter daemon mode.", LOG_GENERAL, LOG_INFO);
+    require Proc::Daemon;
     Proc::Daemon::Init();
     Log_Message("Now running as a daemon.", LOG_GENERAL, LOG_INFO);
 }
