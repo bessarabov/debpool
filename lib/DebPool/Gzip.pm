@@ -91,7 +91,7 @@ our($Error);
 # Gzip_File($file)
 #
 # Generates a gzipped version of $file using Compress::Zlib, and returns the
-# filename. Returns undef (and sets $Error) on failure.
+# filename. Returns 0 (and sets $Error) on failure.
 
 sub Gzip_File {
     use DebPool::Logging qw(:functions :facility :level);
@@ -105,28 +105,29 @@ sub Gzip_File {
     my $gz = gzopen($tmpfile, 'wb9');
     if (!$gz) {
         $Error = "Couldn't initialize compression library: $gzerrno";
-        return undef;
+        return 0;
     }
 
     # Open the source file so that we have it available.
-    if (!open(SOURCE, '<', $file)) {
+    my $source;
+    if (!open($source, '<', $file)) {
         $Error = "Couldn't open source file '$file': $!";
-        return undef;
+        return 0;
     }
 
     while (1) {
         my $buffer;
-        my $bytesread = read SOURCE, $buffer, 4096;
+        my $bytesread = read $source, $buffer, 4096;
         if (!defined $bytesread) {
             $Error = "Error reading from '$file': $!";
-            close SOURCE;
-            return undef;
+            close $source;
+            return 0;
         }
         my $byteswritten = $gz->gzwrite($buffer);
         if ($byteswritten < $bytesread) {
             $Error = "Error gzwriting to temporary file: " . $gz->gzerror;
-            close SOURCE;
-            return undef;
+            close $source;
+            return 0;
         }
         last if $bytesread == 0;
     }
@@ -137,19 +138,22 @@ sub Gzip_File {
     if (($gzflush != Z_OK) && ($gzflush != Z_STREAM_END)) {
         $Error = "Error flushing compressed file: " . $gz->gzerror;
         print "$Error\n";
-        close SOURCE;
-        return undef;
+        close $source;
+        return 0;
     }
 
     # And we're done
-    close SOURCE;
+    close $source;
     $gz->gzclose;
     $tmpfile->unlink_on_destroy(0);
     return $tmpfile->filename;
 }
 
 sub new {
-    bless { ERROR => undef };
+    my $class = shift;
+    my $self = { 'ERROR' => undef };
+    bless $self, $class;
+    return $self;
 }
 
 sub Compress_File {

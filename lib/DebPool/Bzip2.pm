@@ -91,7 +91,7 @@ our($Error);
 # Bzip_File($file)
 #
 # Generates a bzipped version of $file, and returns the filename. Returns
-# undef (and sets $Error) on failure.
+# 0 (and sets $Error) on failure.
 
 sub Bzip2_File {
     use DebPool::Logging qw(:functions :facility :level);
@@ -105,28 +105,29 @@ sub Bzip2_File {
     my $bz = bzopen($tmpfile, 'wb9');
     if (!$bz) {
         $Error = "Couldn't initialize compression library: " . $bzerrno;
-        return undef;
+        return 0;
     }
 
     # Open the source file so that we have it available.
-    if (!open(SOURCE, '<', $file)) {
+    my $source;
+    if (!open($source, '<', $file)) {
         $Error = "Couldn't open source file '$file': $!";
-        return undef;
+        return 0;
     }
 
     while (1) {
         my $buffer;
-        my $bytesread = read SOURCE, $buffer, 4096;
+        my $bytesread = read $source, $buffer, 4096;
         if (!defined $bytesread) {
             $Error = "Error reading from '$file': $!";
-            close SOURCE;
-            return undef;
+            close $source;
+            return 0;
         }
         my $byteswritten = $bz->bzwrite($buffer);
         if ($byteswritten < $bytesread) {
             $Error = "Error bzwriting to temporary file: " . $bz->bzerror;
-            close SOURCE;
-            return undef;
+            close $source;
+            return 0;
         }
         last if $bytesread == 0;
     }
@@ -136,19 +137,22 @@ sub Bzip2_File {
     # BZ_OK and BZ_STREAM_END are ok
     if (($bzflush != BZ_OK) && ($bzflush != BZ_STREAM_END)) {
         $Error = "Error flushing compressed file: " . $bz->bzerror;
-        close SOURCE;
-        return undef;
+        close $source;
+        return 0;
     }
 
     # And we're done
-    close SOURCE;
+    close $source;
     $bz->bzclose;
     $tmpfile->unlink_on_destroy(0);
     return $tmpfile->filename;
 }
 
 sub new {
-    bless { ERROR => undef };
+    my $class = shift;
+    my $self = { 'ERROR' => undef };
+    bless $self, $class;
+    return $self;
 }
 
 sub Compress_File {
