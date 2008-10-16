@@ -19,11 +19,9 @@ DEBPOOL_VERSION = $(shell dpkg-parsechangelog | grep -e '^Version:' | cut -d ' '
 build: build-stamp
 build-stamp:
 	dh_testdir
-	# Add commands to compile the package here
 	$(PERL) Makefile.PL INSTALLDIRS=vendor \
         VERSION=$(DEBPOOL_VERSION)
 	$(MAKE)
-	# $(MAKE) test
 	pod2man --name="DebPool::Config" \
 		--center="DebPool Configuration" \
 		--release="debpool v$(DEBPOOL_VERSION)" \
@@ -44,7 +42,6 @@ clean:
 	dh_testdir
 	dh_testroot
 	dh_clean build-stamp install-stamp DebPool::Config.5 debpool.1
-	# Add commands to clean up after the build process here
 	[ ! -f Makefile ] || $(MAKE) realclean
 
 install: build install-stamp
@@ -53,7 +50,6 @@ install-stamp:
 	dh_testroot
 	dh_clean -k
 	dh_installdirs
-	# Add commands to install the package into $(TMP) here
 	$(MAKE) install DESTDIR=$(TMP) PREFIX=/usr
 	[ ! -d $(TMP)/usr/lib/perl5 ] || \
 		rmdir --ignore-fail-on-non-empty --parents --verbose \

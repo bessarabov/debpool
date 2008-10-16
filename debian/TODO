@@ -1,5 +1,12 @@
 Features, fixes, and other stuff to be done.
 
+(general)
+
+* Support tools for manipulating metadata (which really means 'anything
+  stored in database files').
+* Support rebuild-dbs (including invocation from rebuild-all)?
+  - What can this do with stuff that has migrated between distributions?
+
 (package uploads)
 
 * Fix package uploads for different cases, such as:
@@ -11,18 +18,39 @@ Features, fixes, and other stuff to be done.
 
 * Allow package removals through a simple command and/or signal to debpool
 
-(remove .package and .source metadata from database)
+(package migration)
 
-* Use another method to retrieve package metadata instead of using these files.
+* Implement package migration between different sections.
+  - For example, migration from unstable to testing.
+
+(compression)
+
+* Use Compress::Zlib and Compress::Bzip2 to create bzip2 and gzip Packages and
+  Sources files.
+
+(config file)
+
+* Perhaps change the name of config file to debpoolrc.
+  - will need to change man pages and other documentation as well.
+* Some way to double-parse values in $archive (allowing the equivalent of
+  relative path references from archive_dir, so that changes are reflected
+  in all other paths by default).
+
+(documentation)
+
+* Include examples of using gnupg-agent with debpool.
+* Improve the "multiple debpool" documentation.
 
 (email)
 
 * Implement email notifications.
+  - (Bug #293054).
 
 (archive diff support)
 
 * Support Packages.diff, Sources.diff, and Contents-<arch>.diff files.
   - Should probably use 'diff --ed' as diff is an essential package anyway.
+  - (Bug #323041).
 
 (hooks)
 
@@ -35,27 +63,13 @@ Features, fixes, and other stuff to be done.
 
 * Support gamin (useful for non-Linux ports).
 
-
-Items which still need to be done (OLD LIST. Will check this later):
-
-(general)
-
-* Support tools for manipulating metadata (which really means 'anything
-  stored in database files').
-
-* Support rebuild-dbs (including invocation from rebuild-all)?
-  - What can this do with stuff that has migrated between distributions?
-
-(for sane binary-all)
-
-* Support an external source for binary-all data (for example, snarfing it
-  out of a Packages file from http.us.debian.org).
-
-(unknown)
+(signed deb files)
 
 * Integrate with (or emulate) debsig-verify, to allow for verification of
   signed deb files (in addition to signed metadata).
+  - This probably won't happen anytime soon as there's little support for signed
+    deb files.
 
-* Some way to double-parse values in $archive (allowing the equivalent of
-  relative path references from archive_dir, so that changes are reflected
-  in all other paths by default).
+(remove .package and .source metadata from database)
+
+* Use another method to retrieve package metadata instead of using these files.

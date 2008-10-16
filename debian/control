@@ -12,21 +12,19 @@ Homepage: http://wiki.debian.org/debpool
 Package: debpool
 Architecture: all
 Depends: ${perl:Depends}, liblinux-inotify2-perl
-Recommends: gnupg, libdigest-sha-perl, libproc-daemon-perl, libcompress-zlib-perl
-Description: pool-based Debian package archiver
- DebPool is a package archive maintenance utility designed with a goal of
- removing any dependency on code not shipped as part of the core Debian
- system.
+Recommends: gnupg, libproc-daemon-perl
+Description: Debian package archive maintenance utility
+ DebPool is a package archive maintenance utility. It is designed with the goal
+ of keeping the number of dependencies down to a minimum. It is intended to be
+ a lightweight replacement for the full Debian archival scripts, in the
+ tradition of debarchiver and mini-dinstall, but using a pool layout and
+ avoiding external dependencies.
  .
  It is capable of all of the following:
    * Tracking multiple distributions (however, it does *not* include
      unstable -> testing promotion scripts).
-   * Generating Release files (requires libdigest-sha-perl)
+   * Generating Release files
    * Verifying package signatures (requires gnupg).
-   * Signing release files (requires Release files and gnupg).
+   * Signing Release files (requires gnupg).
    * Running in single-pass or daemon modes.
    * Process incoming packages using Inotify.
- .
- DebPool is intended to be a lightweight replacement for the full Debian
- archival scripts, in the tradition of debarchive and mini-dinstall, but
- using a pool layout and avoiding external dependencies.
