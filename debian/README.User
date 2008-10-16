@@ -22,7 +22,7 @@ Basic instructions for setting up a system-wide debpool archive with a
 
    dpkg-statoverride --update --add debpool debpool 0755 /var/cache/debpool
 
-3. Edit /etc/debpool/Config.pm. The following item is of particular note:
+3. Edit /etc/debpool/debpoolrc. The following item is of particular note:
 
    * archive-dir (the archive directory chosen in step 2)
      - You may wish to double-check the *_mode settings as well

@@ -63,8 +63,8 @@ Basic instructions for setting up GnuPG:
    turn off debpool's Release file generation and manully generate/sign a
    Release file for each section).
 
-6. Edit the appropriate Config.pm file (/etc/debpool/Config.pm or
-   ~/.debpool/Config.pm), set $Options{'sign_release'} to 1 and
+6. Edit the appropriate debpoolrc file (/etc/debpool/debpoolrc or
+   ~/.debpool/debpoolrc), set $Options{'sign_release'} to 1 and
    $Options{'gpg_sign_key'} to the key ID of your archive signing key.
    Note that this won't have any effect unless you also enable Release
    file generation (but it won't hurt anything, either).

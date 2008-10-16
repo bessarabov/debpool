@@ -22,13 +22,13 @@ build-stamp:
 	$(PERL) Makefile.PL INSTALLDIRS=vendor \
         VERSION=$(DEBPOOL_VERSION)
 	$(MAKE)
-	pod2man --name="DebPool::Config" \
+	pod2man --name="debpoolrc" \
 		--center="DebPool Configuration" \
 		--release="debpool v$(DEBPOOL_VERSION)" \
 		--date=$(shell date +%Y-%m-%d) \
 		--section=5 \
 		lib/DebPool/Config.pm \
-		DebPool::Config.5
+		debpoolrc.5
 	pod2man --name="debpool" \
 		--center="debpool" \
 		--release="debpool v$(DEBPOOL_VERSION)" \

@@ -57,8 +57,8 @@ package DebPool::Config;
 =head1 DESCRIPTION
 
 The DebPool::Config file is normally found in three places;
-F</usr/share/debpool/Config.pm>, F</etc/debpool/Config.pm>, and
-F<$HOME/.debpool/Config.pm> (in ascending order of precedence);
+F</usr/share/perl5/DebPool/Config.pm>, F</etc/debpool/debpoolrc>, and
+F<$HOME/.debpool/debpoolrc> (in ascending order of precedence);
 further locations can also be specified on the command line with the
 '--config=<file>' option, which overrides all of these (and is, in turn,
 overridden by any command line options). Also of note is the --nodefault
@@ -186,12 +186,12 @@ Clean_Options();
 sub Load_Default_Configs {
     Load_Internal_Configs();
 
-    if (-r '/etc/debpool/Config.pm') {
-        do '/etc/debpool/Config.pm'; # System defaults
+    if (-r '/etc/debpool/debpoolrc') {
+        do '/etc/debpool/debpoolrc'; # System defaults
     }
 
-    if (-r "$ENV{'HOME'}/.debpool/Config.pm") {
-        do "$ENV{'HOME'}/.debpool/Config.pm"; # User defaults
+    if (-r "$ENV{'HOME'}/.debpool/debpoolrc") {
+        do "$ENV{'HOME'}/.debpool/debpoolrc"; # User defaults
     }
 }
 
@@ -1038,7 +1038,7 @@ __END__
 
 =head1 CAVEATS
 
-Command line options will override all Config.pm declarations.
+Command line options will override all debpoolrc declarations.
 
 =cut
 

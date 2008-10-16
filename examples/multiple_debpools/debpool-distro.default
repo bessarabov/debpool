@@ -4,9 +4,9 @@
 # Change to anything except "0" to enable running debpool as a daemon.
 ENABLED="0"
 
-# Parameters passed to debpool. See DebPool::Config(5). You don't have
+# Parameters passed to debpool. See debpoolrc(5). You don't have
 # to specify --daemon.
-OPTIONS="--config /etc/debpool/$DISTRO-Config.pm"
+OPTIONS="--config /etc/debpool/$DISTRO-debpoolrc"
 
 # User and group to run debpool as. If you leave DEBPOOL_USER empty, debpool
 # will run as root. If you leave the group empty, DEBPOOL_GROUP will be the

@@ -25,8 +25,6 @@ Features, fixes, and other stuff to be done.
 
 (config file)
 
-* Perhaps change the name of config file to debpoolrc.
-  - will need to change man pages and other documentation as well.
 * Some way to double-parse values in $archive (allowing the equivalent of
   relative path references from archive_dir, so that changes are reflected
   in all other paths by default).

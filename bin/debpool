@@ -754,18 +754,18 @@ B<debpool --dists unstable=sid --dists experimental=experimental ...>
 
 =head1 OPTIONS
 
-See the L<DebPool::Config> manpage for details on all configuration
+See the L<debpoolrc> manpage for details on all configuration
 options and their defaults.
 
 =head1 FILES
 
 =over 4
 
-=item F</etc/debpool/Config.pm>
+=item F</etc/debpool/debpoolrc>
 
 System defaults file.
 
-=item F<$HOME/.debpool/Config.pm>
+=item F<$HOME/.debpool/debpoolrc>
 
 User-specific defaults file.
 
@@ -778,7 +778,7 @@ System.
 
 =head1 SEE ALSO
 
-L<DebPool::Config>
+L<debpoolrc>
 
 =head1 AUTHOR
 

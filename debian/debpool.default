@@ -4,7 +4,7 @@
 # Change to anything except "0" to enable running debpool as a daemon.
 ENABLED="0"
 
-# Parameters passed to debpool. See DebPool::Config(5). You don't have
+# Parameters passed to debpool. See debpoolrc(5). You don't have
 # to specify --daemon.
 OPTIONS=""
 

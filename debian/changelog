@@ -11,6 +11,7 @@ debpool (0.3.8) experimental; urgency=low
     + Changed debpool to not check for existence of Proc::Daemon, since it will
       now be installed by default.
   * Write an entry about dependencies in the README.Debian file.
+  * Rename config file from Config.pm to debpoolrc.
 
  -- Andres Mejia <mcitadel@gmail.com>  Thu, 16 Oct 2008 16:55:37 -0400
 
