@@ -122,13 +122,13 @@ sub Bzip2_File {
             close SOURCE;
             return undef;
         }
-        last if $bytesread == 0;
         my $byteswritten = $bz->bzwrite($buffer);
         if ($byteswritten < $bytesread) {
             $Error = "Error bzwriting to temporary file: " . $bz->bzerror;
             close SOURCE;
             return undef;
         }
+        last if $bytesread == 0;
     }
 
     my $bzflush = $bz->bzflush(BZ_FINISH);

@@ -122,13 +122,13 @@ sub Gzip_File {
             close SOURCE;
             return undef;
         }
-        last if $bytesread == 0;
         my $byteswritten = $gz->gzwrite($buffer);
         if ($byteswritten < $bytesread) {
             $Error = "Error gzwriting to temporary file: " . $gz->gzerror;
             close SOURCE;
             return undef;
         }
+        last if $bytesread == 0;
     }
 
     my $gzflush = $gz->gzflush(Z_FINISH);
