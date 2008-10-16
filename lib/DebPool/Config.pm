@@ -36,7 +36,7 @@ package DebPool::Config;
 
 =head1 NAME
 
-DebPool::Config - configuration file format for debpool
+debpoolrc - configuration file format for debpool
 
 =cut
 
