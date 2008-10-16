@@ -41,7 +41,7 @@ build-stamp:
 clean:
 	dh_testdir
 	dh_testroot
-	dh_clean build-stamp install-stamp DebPool::Config.5 debpool.1
+	dh_clean build-stamp install-stamp debpoolrc.5 debpool.1
 	[ ! -f Makefile ] || $(MAKE) realclean
 
 install: build install-stamp
@@ -65,7 +65,7 @@ binary-indep: build install
 	dh_testroot
 	dh_installexamples
 	dh_installdocs
-	dh_installman DebPool::Config.5 debpool.1
+	dh_installman debpoolrc.5 debpool.1
 	dh_installchangelogs
 	dh_installinit
 	dh_installlogrotate
