@@ -871,7 +871,7 @@ sub Audit_Package {
     use DebPool::Dirs qw(:functions);
     use DebPool::Logging qw(:functions :facility :level);
 
-    my($package, $changes_hashref) = @_;
+    my($package, $changefile, $changes_hashref) = @_;
 
     # Checking for version of package being installed
     my $changes_version = $changes_hashref->{'Version'};
@@ -898,14 +898,13 @@ sub Audit_Package {
 
     my $unlinked = 0;
     foreach my $file (@pool_files) {
-        my $orig = 0;
-        my $deb = 0;
-        my $src = 0;
-        my $bin_package = 0;
-        my $version;
-
         # Go through each architecture in the changes file
         foreach my $arch (@changes_arch) {
+            my $orig = 0;
+            my $deb = 0;
+            my $src = 0;
+            my $bin_package = 0;
+            my $version = 0;
             if ($arch eq 'source') {
                 if ($file =~ m/^([^_]+)_([^_]+)\.orig\.tar\.gz$/) { #orig.tar.gz
                     $bin_package = $1;
@@ -977,6 +976,14 @@ sub Audit_Package {
     }
 
     # Now we want to do the same for the changes files.
+    # First, we'll want to include the architecture the changes file was
+    # generated from. This is in case that package builds only architecture
+    # independent packages, such as debpool.
+    my $changefile_arch = $changefile;
+    $changefile_arch =~ s/^[^_]+_[^_]+_([^.]+)\.changes$/$1/;
+    if (!grep {$_ eq $changefile_arch} @changes_arch) {
+        push @changes_arch, $changefile_arch;
+    }
     foreach my $file (@changes) {
         foreach my $arch (@changes_arch) {
             my $version = 0;

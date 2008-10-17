@@ -383,7 +383,7 @@ foreach my $changefile (@changefiles) {
                 last; # Don't check other files, we failed
             }
         }
-    } # TODO: Will this work for a binNMU?
+    }
 
     next if ($rejected); # Reject message already logged, go to next package.
 
@@ -483,7 +483,7 @@ foreach my $changefile (@changefiles) {
     # And, now that that's done, audit the package area in the pool to get
     # rid of crufty, obsolete versions.
 
-    Audit_Package($package, $changes_data);
+    Audit_Package($package, $changefile, $changes_data);
 }
 
 # Regenerate {Packages,Sources}{,.gz} for distributions which need it. Also

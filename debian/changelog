@@ -2,8 +2,11 @@ debpool (0.3.10) experimental; urgency=low
 
   * Handle conffile renaming as suggested in
     http://wiki.debian.org/DpkgConffileHandling.
+  * Fix issue where we were trying to delete obsolete files twice.
+  * Fix issue where changes files were not being obsoleted for packages that
+    build only architecture independent binaries (such as debpool).
 
- -- Andres Mejia <mcitadel@gmail.com>  Fri, 17 Oct 2008 12:50:08 -0400
+ -- Andres Mejia <mcitadel@gmail.com>  Fri, 17 Oct 2008 14:08:49 -0400
 
 debpool (0.3.9) experimental; urgency=low
 
