@@ -3,7 +3,7 @@
 #####
 #
 # Copyright 2003-2004 Joel Aelwyn. All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
 # are met:
@@ -15,7 +15,7 @@
 # 3. Neither the name of the Author nor the names of any contributors
 #    may be used to endorse or promote products derived from this software
 #    without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
 # ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -107,15 +107,15 @@ my ($lockfh, $statfh);
 if (!sysopen($lockfh, $Options{'lock_file'}, O_WRONLY|O_CREAT|O_EXCL, 0644)) {
     my($msg) = "Couldn't obtain lockfile '$Options{'lock_file'}': ";
     if (( ! -s $Options{'lock_file'} ) and
-       (open($lockfh, '>', $Options{'lock_file'}))) {
+    (open($lockfh, '>', $Options{'lock_file'}))) {
         # Empty file found for lock file
         print $lockfh "$$\n";
         close($lockfh);
     } elsif (open($lockfh, '<', $Options{'lock_file'}) &&
-      (my($pid) = <$lockfh>)) {
+    (my($pid) = <$lockfh>)) {
         chomp($pid);
         if (open($statfh, '<', "/proc/$pid/stat") &&
-           (my($stat) = <$statfh>)) {
+        (my($stat) = <$statfh>)) {
             if ($stat =~ m/debpool/) {
                 # debpool process was already started
                 $msg .= "debpool was already running with PID $pid\n";
@@ -190,17 +190,38 @@ if ($Options{'rebuild-files'}) {
 foreach my $changefile (@changefiles) {
     Log_Message("Processing changefile '$changefile'", LOG_GENERAL, LOG_INFO);
 
-    # .dsc = .changes, minus the part after the last _, plus .dsc
-
-    my(@parts) = split(/_/, $changefile);
-    pop(@parts);
-    my($dscfile) = join('_', @parts) . '.dsc';
-
     my($changes_data) = Parse_Changes("$Options{'incoming_dir'}/$changefile");
     if (!defined($changes_data)) {
         Log_Message("Failure parsing changes file '$changefile': " .
                     $DebPool::Packages::Error, LOG_GENERAL, LOG_ERROR);
         next;
+    }
+
+    # Name of the source package
+    my($package) = $changes_data->{'Source'};
+
+    # In case a valid binNMU is detected, Source will be written as
+    # <package> (<original_version>). We must strip the extra version from the
+    # string.
+    my($source_version);
+    ($package, $source_version) = split(/ /, $package);
+    $source_version =~ s/^\(|\)$//g if defined $source_version;
+
+    # Version of the package
+    my($version) = $changes_data->{'Version'};
+
+    # The .dsc file will be either $package_$version.dsc or
+    # $package_$source_version.dsc dependending if a binNMU was uploaded or not.
+    # Also, we want to strip any epochs that might be present in the versions.
+    my($dscfile, $dscfile_version);
+    if ($source_version) {
+        $dscfile_version = $source_version;
+        $dscfile_version =~ s/^[^:]://;
+        $dscfile = $package . "_$dscfile_version.dsc"
+    } else {
+        $dscfile_version = $version;
+        $dscfile_version =~ s/^[^:]://;
+        $dscfile = $package . "_$dscfile_version.dsc"
     }
 
     my($with_source) = undef; # Upload with or without source?
@@ -229,9 +250,6 @@ foreach my $changefile (@changefiles) {
         }
     }
 
-    my($package) = $changes_data->{'Source'};
-    my($version) = $changes_data->{'Version'};
-
     if ($Options{'require_sigs_meta'}) {
         # First, check the changefile signature
 
@@ -242,7 +260,7 @@ foreach my $changefile (@changefiles) {
             next;
         } else {
             Log_Message("Successful changes signature: '$changefile'",
-                         LOG_GPG, LOG_DEBUG);
+                        LOG_GPG, LOG_DEBUG);
         }
 
         # Now check the dscfile signature
@@ -264,7 +282,7 @@ foreach my $changefile (@changefiles) {
 
     foreach my $filehr (@{$changes_data->{'Files'}}) {
         if (!(Verify_MD5("$Options{'incoming_dir'}/$filehr->{'Filename'}",
-                         $filehr->{'MD5Sum'}))) {
+                        $filehr->{'MD5Sum'}))) {
             $valid = undef;
         }
     }
@@ -385,11 +403,11 @@ foreach my $changefile (@changefiles) {
 
     foreach my $chg_arch (@chg_archs) {
         unless ( grep /^\Q$chg_arch\E$/, @{$Options{'archs'}} ) {
-             Reject_Package($changefile, $changes_data);
-             my($msg) = "The archive isn't configured for '$chg_arch' type packages.";
-             Log_Message($msg, LOG_REJECT, LOG_ERROR);
-             $rejected = 1;
-             last;
+            Reject_Package($changefile, $changes_data);
+            my($msg) = "The archive isn't configured for '$chg_arch' type packages.";
+            Log_Message($msg, LOG_REJECT, LOG_ERROR);
+            $rejected = 1;
+            last;
         }
     }
 
@@ -455,7 +473,7 @@ foreach my $changefile (@changefiles) {
         Log_Message($msg, LOG_INSTALL, LOG_INFO);
     } else {
         # Something is very, very wrong.
-        Log_Message("Couldn't install package '$package': " . 
+        Log_Message("Couldn't install package '$package': " .
                     $DebPool::Packages::Error, LOG_INSTALL, LOG_FATAL);
         Close_Databases();
         unlink($Options{'lock_file'}); # Release our lock

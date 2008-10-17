@@ -5,7 +5,7 @@ package DebPool::Packages;
 # DebPool::Packages - Module for handling package metadata
 #
 # Copyright 2003-2004 Joel Aelwyn. All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
 # are met:
@@ -17,7 +17,7 @@ package DebPool::Packages;
 # 3. Neither the name of the Author nor the names of any contributors
 #    may be used to endorse or promote products derived from this software
 #    without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
 # ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -77,9 +77,9 @@ BEGIN {
 
     %EXPORT_TAGS = (
         'functions' => [qw(&Allow_Version &Audit_Package &Generate_List
-                           &Generate_Package &Generate_Source &Guess_Section
-                           &Install_List &Install_Package &Parse_Changes
-                           &Parse_DSC &Reject_Package &Verify_MD5)],
+                        &Generate_Package &Generate_Source &Guess_Section
+                        &Install_List &Install_Package &Parse_Changes
+                        &Parse_DSC &Reject_Package &Verify_MD5)],
         'vars' => [qw()],
     );
 }
@@ -587,7 +587,7 @@ sub Generate_List {
             my $target_all = "$pool/${source}_" . Strip_Epoch($version);
             $target_all .= "_all\.package";
 
-	    my ($pkg_arch_fh, $pkg_all_fh);
+        my ($pkg_arch_fh, $pkg_all_fh);
 
             # Check for any binary-arch packages
             if (-e $target) {
@@ -668,6 +668,14 @@ sub Install_Package {
     my $pool_dir = $Options{'pool_dir'};
 
     my $pkg_name = $chg_hashref->{'Source'};
+
+    # In case a valid binNMU is detected, Source will be written as
+    # <package> (<original_version>). We must strip the extra version from the
+    # string.
+    my($source_version);
+    ($pkg_name, $source_version) = split(/ /, $pkg_name);
+    $source_version =~ s/^\(|\)$//g if defined $source_version;
+
     my $pkg_ver = $chg_hashref->{'Version'};
 
     my $guess_section = Guess_Section($chg_hashref);
@@ -867,18 +875,6 @@ sub Audit_Package {
 
     # Checking for version of package being installed
     my $changes_version = $changes_hashref->{'Version'};
-    # Checking for binary only upload
-    my $with_source = undef;
-    # Checking for binary-all packages in binary only upload
-    my $with_indep = undef;
-    for my $temp (@{$changes_hashref->{'Architecture'}}) {
-        if ('source' eq $temp) {
-            $with_source = 1;
-        }
-        if ('all' eq $temp) {
-            $with_indep = 1;
-        }
-    }
 
     my $installed_dir = $Options{'installed_dir'};
     my $pool_dir = $Options{'pool_dir'};
@@ -888,7 +884,8 @@ sub Audit_Package {
         ($pool_dir, PoolDir($package, $section), $package));
 
     my @changes = grep(/${package}_/, Scan_Changes($installed_dir));
-    
+    my @changes_arch = @{$changes_hashref->{'Architecture'}};
+
     my $pool_scan = Scan_All($package_dir);
     if (!defined($pool_scan)) {
         $Error = $DebPool::Dirs::Error;
@@ -898,116 +895,113 @@ sub Audit_Package {
 
     # Go through each file found in the pool directory, and determine its
     # version. If it isn't in the current version tables, unlink it.
-    
+
     my $unlinked = 0;
     foreach my $file (@pool_files) {
         my $orig = 0;
         my $deb = 0;
         my $src = 0;
-        my($bin_package, $version);
+        my $bin_package = 0;
+        my $version;
 
-        if ($file =~ m/^([^_]+)_([^_]+)\.orig\.tar\.gz$/) { # orig.tar.gz
-            $bin_package = $1;
-            $version = $2;
-            $src = 1;
-            $orig = 1;
-        } elsif ($file =~ m/^([^_]+)_([^_]+)\.tar\.gz$/) { # tar.gz
-            $bin_package = $1;
-            $version = $2;
-            $src = 1;
-        } elsif ($file =~ m/^([^_]+)_([^_]+)\.diff\.gz$/) { # diff.gz
-            $bin_package = $1;
-            $version = $2;
-            $src = 1;
-        } elsif ($file =~ m/^([^_]+)_([^_]+)\.dsc$/) { # dsc
-            $bin_package = $1;
-            $version = $2;
-            $src = 1;
-        } elsif ($file =~ m/^([^_]+)_([^_]+)_.+\.deb$/) { # deb
-            $bin_package = $1;
-            $version = $2;
-            $deb = 1;
-        } elsif ($file =~ m/^([^_]+)_([^_]+)_.+\.udeb$/) { # udeb
-            $bin_package = $1;
-            $version = $2;
-            $deb = 1;
-        } elsif ($file =~ m/^([^_]+)_([^_]+)_.+\.package$/) { # package metadata
-            $bin_package = $1;
-            $version = $2;
-        } elsif ($file =~ m/^([^_]+)_([^_]+)\.source$/) { # source metadata
-            $bin_package = $1;
-            $version = $2;
-        } else {
-            Log_Message("Couldn't figure out filetype for '$package_dir/$file'",
-                LOG_AUDIT, LOG_ERROR);
-            next;
-        }
-
-        # Skip files if we recognize it as a valid version.
-
-        # Skipping dsc, diff.gz, and orig tarball files if doing a binary only
-        # upload
-        if (!$with_source) {
-            $src = 0;
-            # Skip binary-all packages in a binary only upload without
-            # binary-all packages as long as they're of the same changes
-            # version
-            if ((!$with_indep) &&
-                    ($file =~ m/\Q_${changes_version}_all.\Eu?deb/)) {
-                $deb = 0;
-            }
-        }
-        my $matched = 0;
-        foreach my $dist (@{$Options{'realdists'}}) {
-            my $ver_pkg;
-            if ($src) {
-                $ver_pkg = 'source';
-            } elsif ($deb) {
-                $ver_pkg = $bin_package;
+        # Go through each architecture in the changes file
+        foreach my $arch (@changes_arch) {
+            if ($arch eq 'source') {
+                if ($file =~ m/^([^_]+)_([^_]+)\.orig\.tar\.gz$/) { #orig.tar.gz
+                    $bin_package = $1;
+                    $version = $2;
+                    $src = 1;
+                    $orig = 1;
+                } elsif ($file =~ m/^([^_]+)_([^_]+)\.tar\.gz$/) { # tar.gz
+                    $bin_package = $1;
+                    $version = $2;
+                    $src = 1;
+                } elsif ($file =~ m/^([^_]+)_([^_]+)\.diff\.gz$/) { # diff.gz
+                    $bin_package = $1;
+                    $version = $2;
+                    $src = 1;
+                } elsif ($file =~ m/^([^_]+)_([^_]+)\.dsc$/) { # dsc
+                    $bin_package = $1;
+                    $version = $2;
+                    $src = 1;
+                } elsif ($file =~ m/^([^_]+)_([^_]+)\.source$/) { # source metadata
+                    $bin_package = $1;
+                    $version = $2;
+                }
             } else {
-                $ver_pkg = 'meta';
+                if ($file =~
+                    m/^([^_]+)_([^_]+)\Q_${arch}.\Eu?deb$/) { # deb or udeb
+                    $bin_package = $1;
+                    $version = $2;
+                    $deb = 1;
+                } elsif ($file =~
+                    m/^([^_]+)_([^_]+)\Q_${arch}.\Epackage$/) { # package metadata
+                    $bin_package = $1;
+                    $version = $2;
+                }
             }
+            # Skip the file if it comes from a different architecture.
+            next if $bin_package eq 0;
 
-            my $dist_ver = Get_Version($dist, $package, $ver_pkg);
-            next if (!defined($dist_ver)); # No version in specified dist
-            $dist_ver = Strip_Epoch($dist_ver);
-            if ($orig) { $dist_ver =~ s/-.+$//; }
-            if ($version eq $dist_ver) { $matched = 1; }
-        }
-        next if $matched;
+            # Skip files if we recognize it as a valid version.
+            my $matched = 0;
+            foreach my $dist (@{$Options{'realdists'}}) {
+                my $ver_pkg;
+                if ($src) {
+                    $ver_pkg = 'source';
+                } elsif ($deb) {
+                    $ver_pkg = $bin_package;
+                } else {
+                    $ver_pkg = 'meta';
+                }
 
-        # Otherwise, unlink it.
+                my $dist_ver = Get_Version($dist, $package, $ver_pkg);
+                next if (!defined($dist_ver)); # No version in specified dist
+                $dist_ver = Strip_Epoch($dist_ver);
+                if ($orig) { $dist_ver =~ s/-.+$//; }
+                if ($version eq $dist_ver) { $matched = 1; }
+            }
+            next if $matched;
 
-        if (unlink("$package_dir/$file")) {
-            $unlinked += 1;
-            Log_Message("Unlinked obsolete pool file '$package_dir/$file'",
-                LOG_AUDIT, LOG_DEBUG);
-        } else {
-            Log_Message("Couldn't obsolete pool file '$package_dir/$file'",
-                LOG_AUDIT, LOG_ERROR);
+            # Otherwise, unlink it.
+
+            if (unlink("$package_dir/$file")) {
+                $unlinked += 1;
+                Log_Message("Unlinked obsolete pool file '$package_dir/$file'",
+                    LOG_AUDIT, LOG_DEBUG);
+            } else {
+                Log_Message("Couldn't obsolete pool file '$package_dir/$file'",
+                    LOG_AUDIT, LOG_ERROR);
+            }
         }
     }
 
+    # Now we want to do the same for the changes files.
     foreach my $file (@changes) {
-        $file =~ m/^[^_]+_([^_]+)_.+$/; # changes
-        my $version = $1;
+        foreach my $arch (@changes_arch) {
+            my $version = 0;
+            if ($file =~ m/^[^_]+_([^_]+)\Q_${arch}.\Echanges$/) { # changes
+                $version = $1;
+            }
+            next if $version eq 0;
 
-        my $matched = 0;
-        foreach my $dist (@{$Options{'realdists'}}) {
-            my $dist_ver = Get_Version($dist, $package, 'meta');
-            next if (!defined($dist_ver)); # No version in specified dist
-            $dist_ver = Strip_Epoch($dist_ver);
-            if ($version eq $dist_ver) { $matched = 1; }
-        }
-        next if $matched;
+            my $matched = 0;
+            foreach my $dist (@{$Options{'realdists'}}) {
+                my $dist_ver = Get_Version($dist, $package, 'meta');
+                next if (!defined($dist_ver)); # No version in specified dist
+                $dist_ver = Strip_Epoch($dist_ver);
+                if ($version eq $dist_ver) { $matched = 1; }
+            }
+            next if $matched;
 
-        if (unlink("$installed_dir/$file")) {
-            $unlinked += 1;
-            Log_Message("Unlinked obsolete changes file " .
-                "'$installed_dir/$file'", LOG_AUDIT, LOG_DEBUG);
-        } else {
-            Log_Message("Couldn't obsolete changes file " .
-                "'$installed_dir/$file'", LOG_AUDIT, LOG_ERROR);
+            if (unlink("$installed_dir/$file")) {
+                $unlinked += 1;
+                Log_Message("Unlinked obsolete changes file " .
+                    "'$installed_dir/$file'", LOG_AUDIT, LOG_DEBUG);
+            } else {
+                Log_Message("Couldn't obsolete changes file " .
+                    "'$installed_dir/$file'", LOG_AUDIT, LOG_ERROR);
+            }
         }
     }
 
@@ -1027,6 +1021,14 @@ sub Generate_Package {
 
     my($changes_data, $arch) = @_;
     my $source = $changes_data->{'Source'};
+
+    # In case a valid binNMU is detected, Source will be written as
+    # <package> (<original_version>). We must strip the extra version from the
+    # string.
+    my($source_version);
+    ($source, $source_version) = split(/ /, $source);
+    $source_version =~ s/^\(|\)$//g if defined $source_version;
+
     my @files = @{$changes_data->{'Files'}};
     my $pool_base = PoolBasePath();
     
@@ -1093,7 +1095,11 @@ sub Generate_Package {
 
         print $tmpfile_handle "Maintainer: $changes_data->{'Maintainer'}\n";
         print $tmpfile_handle "Architecture: $arch\n";
-        print $tmpfile_handle "Source: $source\n";
+        if ($source_version) {
+            print $tmpfile_handle "Source: $source" . "_($source_version)\n";
+        } else {
+            print $tmpfile_handle "Source: $source\n";
+        }
         print $tmpfile_handle "Version: $changes_data->{'Version'}\n";
 
         # All of the inter-package relationships go together, and any
@@ -1176,7 +1182,7 @@ sub Generate_Source {
     print $tmpfile_handle join(' ', @{$dsc_data->{'Architecture'}}) . "\n";
 
     print $tmpfile_handle "Standards-Version: $dsc_data->{'Standards-Version'}\n"
-      if  exists $dsc_data->{'Standards-Version'};
+    if  exists $dsc_data->{'Standards-Version'};
     print $tmpfile_handle "Format: $dsc_data->{'Format'}\n";
     print $tmpfile_handle "Directory: " .  join('/',
         (PoolBasePath(), PoolDir($source, $section), $source)) . "\n";
@@ -1262,13 +1268,13 @@ sub Install_List {
     }
 
     foreach my $zfile (@zfiles) {
-	my ($ext) = $zfile =~ m{\.([^/]+)$};
-		if (!Move_File($zfile, "${inst_file}.${ext}",
-				$dists_file_mode)) {
-			$Error = "Couldn't install compressed distribution file '$zfile' ";
-			$Error .= "to '${inst_file}.${ext}': ${DebPool::Util::Error}";
-			return 0;
-		}
+    my ($ext) = $zfile =~ m{\.([^/]+)$};
+        if (!Move_File($zfile, "${inst_file}.${ext}",
+                $dists_file_mode)) {
+            $Error = "Couldn't install compressed distribution file '$zfile' ";
+            $Error .= "to '${inst_file}.${ext}': ${DebPool::Util::Error}";
+            return 0;
+        }
     }
 
     return 1;

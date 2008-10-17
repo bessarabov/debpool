@@ -10,7 +10,6 @@ Features, fixes, and other stuff to be done.
 (package uploads)
 
 * Fix package uploads for different cases, such as:
-  - binNMUs
   - allow uploading same version but disallow change of orig file.
   - allow uploading same version but disallow uploading earlier version.
 

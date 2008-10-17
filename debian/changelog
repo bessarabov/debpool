@@ -1,3 +1,11 @@
+debpool (0.3.9) experimental; urgency=low
+
+  * Allow binNMUs.
+    + We basically only obsolete packages of the particular architecture when
+      we're uploading.
+
+ -- Andres Mejia <mcitadel@gmail.com>  Fri, 17 Oct 2008 02:47:03 -0400
+
 debpool (0.3.8) experimental; urgency=low
 
   * Use Compress::Zlib and Compress::Bzip2 to create bzip2 and gzip Packages and
