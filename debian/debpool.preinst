@@ -1,0 +1,25 @@
+#!/bin/sh -e
+
+# Handle our conffile renaming.
+
+# Prepare to move a conffile without triggering a dpkg question
+prep_mv_conffile() {
+    PKGNAME="$1"
+    CONFFILE="$2"
+    if [ -e "$CONFFILE" ]; then
+        md5sum="`md5sum \"$CONFFILE\" | sed -e \"s/ .*//\"`"
+        old_md5sum="`dpkg-query -W -f='${Conffiles}' $PKGNAME | sed -n -e \"\\\\' $CONFFILE '{s/ obsolete$//;s/.* //p}\"`"
+        if [ "$md5sum" = "$old_md5sum" ]; then
+            rm -f "$CONFFILE"
+        fi
+    fi
+}
+
+case "$1" in
+install|upgrade)
+    if dpkg --compare-versions "$2" le "0.3.8"; then
+        prep_mv_conffile "debpool" "/etc/debpool/Config.pm"
+    fi
+esac
+
+#DEBHELPER#

@@ -1,3 +1,10 @@
+debpool (0.3.10) experimental; urgency=low
+
+  * Handle conffile renaming as suggested in
+    http://wiki.debian.org/DpkgConffileHandling.
+
+ -- Andres Mejia <mcitadel@gmail.com>  Fri, 17 Oct 2008 12:50:08 -0400
+
 debpool (0.3.9) experimental; urgency=low
 
   * Allow binNMUs.
