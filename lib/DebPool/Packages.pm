@@ -730,14 +730,14 @@ sub Install_Package {
 
     if (defined($dsc) && defined($dsc_hashref)) {
         my $src_file = Generate_Source($dsc, $dsc_hashref, $chg_hashref);
-    
+
         if (!defined($src_file)) {
             $Error = "Failed to generate .source file: $Error";
             return;
         }
 
         $target = "$pkg_dir/${pkg_name}_" . Strip_Epoch($pkg_ver) . '.source';
-    
+
         if (!Move_File($src_file, $target, $Options{'pool_file_mode'})) {
             $Error = "Failed to move '$src_file' to '$target': ";
             $Error .= $DebPool::Util::Error;
@@ -1038,7 +1038,7 @@ sub Generate_Package {
 
     my @files = @{$changes_data->{'Files'}};
     my $pool_base = PoolBasePath();
-    
+
     # Grab a temporary file.
 
     my($tmpfile_handle, $tmpfile_name) = tempfile();
@@ -1150,7 +1150,7 @@ sub Generate_Source {
     my($dsc, $dsc_data, $changes_data) = @_;
     my $source = $dsc_data->{'Source'};
     my @files = @{$dsc_data->{'Files'}};
-    
+
     # Figure out the priority and section, using the DSC filename and
     # the Changes file data.
 

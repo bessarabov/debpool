@@ -5,7 +5,7 @@ package DebPool::Dirs;
 # DebPool::Dirs - Module for dealing with directory related tasks
 #
 # Copyright 2003-2004 Joel Aelwyn. All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
 # are met:
@@ -17,7 +17,7 @@ package DebPool::Dirs;
 # 3. Neither the name of the Author nor the names of any contributors
 #    may be used to endorse or promote products derived from this software
 #    without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
 # ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -343,15 +343,15 @@ sub Setup_Incoming_Watch {
 #
 # Returns a list of .changes files on success, undef on failure (which
 # includes interruption by a signal).
-    
+
 sub Watch_Incoming {
     use DebPool::Logging qw(:functions :facility :level);
 
     while (my @events = $inotify->read) {
-	my @changes;
-	foreach (@events) {
-	    push @changes, $_->name if ($_->name =~ /\.changes$/);
-	}
+    my @changes;
+    foreach (@events) {
+        push @changes, $_->name if ($_->name =~ /\.changes$/);
+    }
         if (@changes > 0) {
             Log_Message("Found changes: ".join(', ', @changes),
                         LOG_GENERAL, LOG_DEBUG);
@@ -396,7 +396,7 @@ sub Monitor_Incoming {
             }
             return if $DebPool::Signal::Signal_Caught;
         } until ($stat[9] != $mtime);
-        
+
         return Scan_Changes();
     }
 }
@@ -441,7 +441,7 @@ sub Strip_Subsection {
     if (!defined($section)) {
         return 'main';
     }
-    
+
     foreach my $check_section (@{$Options{'sections'}}) {
         if ($section =~ m/^$check_section(\/.+)?$/) {
             return $check_section;
@@ -489,7 +489,7 @@ sub Archfile {
         $result .= "/binary-${architecture}";
         $type = "Packages";
     }
-    
+
     if (!$dironly) {
         $result .= "/${type}";
     }

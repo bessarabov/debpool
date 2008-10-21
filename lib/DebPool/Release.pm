@@ -5,7 +5,7 @@ package DebPool::Release;
 # DebPool::Release - Module for generating and installing Release files
 #
 # Copyright 2003-2004 Joel Aelwyn. All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
 # are met:
@@ -17,7 +17,7 @@ package DebPool::Release;
 # 3. Neither the name of the Author nor the names of any contributors
 #    may be used to endorse or promote products derived from this software
 #    without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
 # ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -254,7 +254,7 @@ sub Generate_Release_Dist {
 
         # Now, for each file, generate MD5 and SHA1 checksums, and put them
         # into Checksums for later use (assuming it's a file we care about).
-    
+
         my(@stat) = stat($fullfile);
         my($size) = $stat[7];
 
@@ -267,11 +267,11 @@ sub Generate_Release_Dist {
         close($hash_fh);
 
         # Now calculate the checksums and put them into the hashes.
-    
+
         my($md5) = Digest::MD5::md5_hex(@filetext);
         my($sha1) = Digest::SHA::sha1_hex(@filetext);
         my($sha256) = Digest::SHA::sha256_hex(@filetext);
-    
+
         push @Checksums, {
             'File' => $file,
             'Size' => $size,

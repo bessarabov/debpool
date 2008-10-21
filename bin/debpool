@@ -313,11 +313,11 @@ foreach my $changefile (@changefiles) {
                 my($pkg_pooldir) = join('/',
                     ($Options{'pool_dir'}, PoolDir($package, $section),
                     $package));
-                
+
                 if ($has_orig) { # Orig tarball uploaded
                     if ((!$Options{'rollback'}) && (-e "$pkg_pooldir/$file")) {
                         Reject_Package($changefile, $changes_data);
-    
+
                         my($msg) = "Duplicate orig tarball '$file'";
                         Log_Message($msg, LOG_REJECT, LOG_ERROR);
 
@@ -325,7 +325,7 @@ foreach my $changefile (@changefiles) {
                         last; # Don't check other files, we just rejected
                     } elsif (!(-e "$Options{'incoming_dir'}/$file")) {
                         Reject_Package($changefile, $changes_data);
-    
+
                         my($msg) = "Missing orig tarball '$file'";
                         Log_Message($msg, LOG_REJECT, LOG_ERROR);
 
@@ -337,7 +337,7 @@ foreach my $changefile (@changefiles) {
                 } else { # Orig tarball in pool - we hope
                     if (!(-e "$pkg_pooldir/$file")) {
                         Reject_Package($changefile, $changes_data);
-    
+
                         my($msg) = "Missing orig tarball '$file'";
                         Log_Message($msg, LOG_REJECT, LOG_ERROR);
 
@@ -508,12 +508,12 @@ ARCH_LOOP:
             # Generate a Packages/Sources file.
 
             my($file) = Generate_List(@triple);
-    
+
             if (!defined($file)) {
                 my($msg) = "Couldn't create list for $dist/$section/${arch}: ";
                 $msg .= $DebPool::Packages::Error;
                 Log_Message($msg, LOG_GENERAL, LOG_ERROR);
-    
+
                 next;
             }
 
@@ -575,15 +575,15 @@ ARCH_LOOP:
                     unlink($file, @zfiles);
                     next;
                 }
-                
+
                 if ($Options{'sign_release'}) {
                     $sigfile = Sign_Release($relfile);
-    
+
                     if (!defined($sigfile)) {
                         my($msg) = "Couldn't create Release signature file: ";
                         $msg .= $DebPool::GnuPG::Error;
                         Log_Message($msg, LOG_GENERAL, LOG_ERROR);
-    
+
                         unlink($file, @zfiles);
 
                         if (defined($relfile)) {
@@ -658,7 +658,7 @@ ARCH_LOOP:
         } else {
             if ($Options{'sign_release'}) {
                 $sigfile = Sign_Release($relfile);
-    
+
                 if (!defined($sigfile)) {
                     my($msg) = "Couldn't create Release signature file: ";
                     $msg .= $DebPool::GnuPG::Error;

@@ -5,7 +5,7 @@ package DebPool::Config;
 # DebPool::Config - Module for handling config options
 #
 # Copyright 2003-2004 Joel Aelwyn. All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
 # are met:
@@ -17,7 +17,7 @@ package DebPool::Config;
 # 3. Neither the name of the Author nor the names of any contributors
 #    may be used to endorse or promote products derived from this software
 #    without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
 # ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -95,8 +95,8 @@ BEGIN {
     );
 
     @EXPORT_OK = qw(
-    	%Options
-    	%OptionDefs
+        %Options
+        %OptionDefs
         &Clean_Options
         &Load_Default_Configs
         &Load_Minimal_Configs
@@ -264,7 +264,7 @@ sub Clean_Options {
     # (non-alias) distribution values.
 
     %dummy = ();
-    
+
     foreach my $dummykey (values(%{$Options{'dists'}})) {
         $dummy{$dummykey} = 1;
     }

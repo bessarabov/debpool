@@ -1,3 +1,9 @@
+debpool (0.3.11) experimental; urgency=low
+
+  * Minor code cleanup.
+
+ -- Andres Mejia <mcitadel@gmail.com>  Tue, 21 Oct 2008 00:06:48 -0400
+
 debpool (0.3.10) experimental; urgency=low
 
   * Handle conffile renaming as suggested in

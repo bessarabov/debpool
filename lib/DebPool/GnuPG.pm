@@ -5,7 +5,7 @@ package DebPool::GnuPG;
 # DebPool::GnuPG - Module for all interactions with GNU Privacy Guard
 #
 # Copyright 2003-2004 Joel Aelwyn. All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
 # are met:
@@ -17,7 +17,7 @@ package DebPool::GnuPG;
 # 3. Neither the name of the Author nor the names of any contributors
 #    may be used to endorse or promote products derived from this software
 #    without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
 # ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -114,7 +114,7 @@ sub Check_Signature {
     foreach my $keyring (@{$Options{'gpg_keyrings'}}) {
         push(@args, '--keyring', $keyring);
     }
-    
+
     push(@args, '--');  # Always a good idea, even if we're pretty sure we won't
                         # get any file names starting with "--" in this program.
 
@@ -131,24 +131,24 @@ sub Check_Signature {
     waitpid($pid,0); # No flags, just wait.
 
     if ($?) { # Failure
-	foreach (@loglines) {
-	    Log_Message($_, LOG_GPG, LOG_DEBUG);
-	}
+    foreach (@loglines) {
+        Log_Message($_, LOG_GPG, LOG_DEBUG);
+    }
         my($msg) = "Failed signature check on '$file' ";
         if (defined($signature)) {
             $msg .= "(signature file '$signature'): ";
         } else {
             $msg .= "(internal signature): ";
         }
-	if (WIFEXITED($?)) {
-	    $msg .= "gpg returned non-zero status " . WEXITSTATUS($?);
-	}
-	elsif (WIFSIGNALED($?)) {
-	    $msg .= "gpg died from signal " . WTERMSIG($?);
-	}
-	else {
-	    $msg .= "gpg terminated in an unknown way.";
-	}
+    if (WIFEXITED($?)) {
+        $msg .= "gpg returned non-zero status " . WEXITSTATUS($?);
+    }
+    elsif (WIFSIGNALED($?)) {
+        $msg .= "gpg died from signal " . WTERMSIG($?);
+    }
+    else {
+        $msg .= "gpg terminated in an unknown way.";
+    }
         Log_Message($msg, LOG_GPG, LOG_WARNING);
     }
     return 1;
@@ -183,20 +183,20 @@ sub Sign_Release {
     waitpid($gnupg_pid, 0);
 
     foreach (@loglines) {
-	Log_Message($_, LOG_GPG, $? ? LOG_ERROR : LOG_WARNING);
+    Log_Message($_, LOG_GPG, $? ? LOG_ERROR : LOG_WARNING);
     }
 
     if ($?) {
-	if (WIFEXITED($?)) {
-	    $Error = "gpg returned non-zero status " . WEXITSTATUS($?);
-	}
-	elsif (WIFSIGNALED($?)) {
-	    $Error = "gpg died from signal " . WTERMSIG($?);
-	}
-	else {
-	    $Error = "gpg terminated in an unknown way.";
-	}
-	return;
+    if (WIFEXITED($?)) {
+        $Error = "gpg returned non-zero status " . WEXITSTATUS($?);
+    }
+    elsif (WIFSIGNALED($?)) {
+        $Error = "gpg died from signal " . WTERMSIG($?);
+    }
+    else {
+        $Error = "gpg terminated in an unknown way.";
+    }
+    return;
     }
 
     # And we're done
@@ -237,7 +237,7 @@ sub Strip_GPG {
     # Okay. Back to front, so that we don't muck up reference numbers.
     # First, we rip out the signature data by splicing it with an empty
     # list.
-    
+
     splice(@text, $sigstart, ($sigend - $sigstart) + 1);
 
     # We used to just rip off the first 3 lines (BEGIN line, hash header,
