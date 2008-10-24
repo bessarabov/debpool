@@ -331,14 +331,8 @@ sub Install_Package {
 
     my $pkg_name = $changes_data{'Source'};
 
-    # In case a valid binNMU is detected, Source will be written as
-    # <package> (<original_version>). We must strip the extra version from the
-    # string.
-    my($source_version);
-    ($pkg_name, $source_version) = split(/ /, $pkg_name);
-    $source_version =~ s/^\(|\)$//g if defined $source_version;
-
     my $pkg_ver = $changes_data{'Version'};
+    my $source_version = $changes_data{'Source-Version'};
 
     my $guess_section = Guess_Section(%changes_data);
     my $pkg_pool_subdir = join('/',
@@ -688,13 +682,7 @@ sub Generate_Package {
 
     my(%changes_data, $arch) = @_;
     my $source = $changes_data{'Source'};
-
-    # In case a valid binNMU is detected, Source will be written as
-    # <package> (<original_version>). We must strip the extra version from the
-    # string.
-    my($source_version);
-    ($source, $source_version) = split(/ /, $source);
-    $source_version =~ s/^\(|\)$//g if defined $source_version;
+    my $source_version = $changes_data{'Source-Version'};
 
     my @files = (keys %{$changes_data{'Files'}});
     my $pool_base = PoolBasePath();
