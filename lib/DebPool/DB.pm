@@ -216,7 +216,8 @@ sub Set_Versions {
     my (%entries, %archs);
     my($oldversion, $oldbinlist, $archlist);
     ($oldversion, $oldbinlist, $archlist) =
-        split(/\|/, $VersionDB{$dist}{$source}) if defined $VersionDB{$dist}{$source};
+        split(/\|/, $VersionDB{$dist}{$source}) if defined
+            $VersionDB{$dist}{$source};
 
     if (defined($oldbinlist)) {
         my(@oldbins) = split(/,/,$oldbinlist);

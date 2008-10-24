@@ -66,7 +66,9 @@ if ($Options{'daemon'}) {
 # sure that it will never be used.
 if (! -d "$ENV{'HOME'}/.debpool") {
     mkdir("$ENV{'HOME'}/.debpool") or
-    Log_Message("Failed to create user configuration directory '$ENV{'HOME'}/.debpool'.", LOG_GENERAL, LOG_ERROR);
+    Log_Message(
+        "Failed to create user configuration directory '" .
+            $ENV{'HOME'} . "/.debpool'.", LOG_GENERAL, LOG_ERROR);
 }
 
 # Have support for multiple compression schemes in a dynamical fashion
@@ -153,7 +155,9 @@ if ($Options{'daemon'} && $Options{'use_inotify'}) {
     # Fall back to normal monitoring if Inotify setup fails.
     if (!Setup_Incoming_Watch()) {
         $Options{'use_inotify'} = 0;
-        Log_Message("Inotify setup failed. Falling back to normal monitoring.", LOG_GENERAL, LOG_WARNING);
+        Log_Message(
+            "Inotify setup failed. Falling back to normal monitoring.",
+            LOG_GENERAL, LOG_WARNING);
     }
 }
 
@@ -260,7 +264,8 @@ foreach my $changefile (@changefiles) {
 
         # Now check the dscfile signature
 
-        if ($with_source && !Check_Signature("$Options{'incoming_dir'}/$dscfile")) {
+        if ($with_source &&
+            !Check_Signature("$Options{'incoming_dir'}/$dscfile")) {
             Reject_Package($changefile, $changes_data);
             Log_Message("GPG signature failure in dsc file '$dscfile'",
                         LOG_REJECT, LOG_ERROR);
@@ -398,7 +403,8 @@ foreach my $changefile (@changefiles) {
     foreach my $chg_arch (@chg_archs) {
         unless ( grep /^\Q$chg_arch\E$/, @{$Options{'archs'}} ) {
             Reject_Package($changefile, $changes_data);
-            my($msg) = "The archive isn't configured for '$chg_arch' type packages.";
+            my $msg =
+                "The archive isn't configured for '$chg_arch' type packages.";
             Log_Message($msg, LOG_REJECT, LOG_ERROR);
             $rejected = 1;
             last;
@@ -429,7 +435,8 @@ foreach my $changefile (@changefiles) {
             next;
         }
 
-        my($allow) = Allow_Version($package, $version, $realdist, $changes_data->{'Architecture'});
+        my $allow = Allow_Version($package, $version, $realdist,
+            $changes_data->{'Architecture'});
 
         if (!defined($allow)) {
             Log_Message("Version check for $version failed: " .

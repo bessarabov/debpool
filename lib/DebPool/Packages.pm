@@ -131,7 +131,8 @@ my @Relationship_Fields = (
 
 ### Meaningful functions
 
-# Allow_Version($package, $version, $distribution)
+# Allow_Version($package, $version, $distribution, $arch)
+# Parameter data types (string, string, string, array_ref)
 #
 # Decide, based on version comparison and config options, whether $version
 # is an acceptable version for $package in $distribution. Returns 1 if the
@@ -161,7 +162,7 @@ sub Allow_Version {
     if ($version eq $old_version) {
         my (%count, @duplicate_arches);
         my @old_archs = Get_Archs($distribution, $package);
-        foreach (@old_archs, @$arch) {
+        foreach (@old_archs, @{$arch}) {
             if (++$count{$_} > 1) {
                 push @duplicate_arches, $_;
             }
@@ -256,7 +257,8 @@ sub Generate_List {
             if (-e $target) {
                 if (!open($pkg_arch_fh, '<', "$target")) {
                     my $msg = "Skipping package entry for all packages from ";
-                    $msg .= "${source}: couldn't open '$target' for reading: $!";
+                    $msg .=
+                        "${source}: couldn't open '$target' for reading: $!";
 
                     Log_Message($msg, LOG_GENERAL, LOG_ERROR);
                     next;
@@ -375,7 +377,8 @@ sub Install_Package {
             return;
         }
 
-        $target = "$pkg_dir/${pkg_name}_" . Strip_Epoch($pkg_ver) . "_$pkg_arch" . '.package';
+        $target = "$pkg_dir/${pkg_name}_" . Strip_Epoch($pkg_ver) .
+            "_$pkg_arch" . '.package';
 
         if (!Move_File($pkg_file, $target, $Options{'pool_file_mode'})) {
             $Error = "Failed to move '$pkg_file' to '$target': ";
@@ -577,7 +580,8 @@ sub Audit_Package {
                     $bin_package = $1;
                     $version = $2;
                     $src = 1;
-                } elsif ($file =~ m/^([^_]+)_([^_]+)\.source$/) { # source metadata
+                } elsif ($file =~ m/^([^_]+)_([^_]+)\.source$/) {
+                    # source metadata
                     $bin_package = $1;
                     $version = $2;
                 }
@@ -588,7 +592,8 @@ sub Audit_Package {
                     $version = $2;
                     $deb = 1;
                 } elsif ($file =~
-                    m/^([^_]+)_([^_]+)\Q_${arch}.\Epackage$/) { # package metadata
+                    m/^([^_]+)_([^_]+)\Q_${arch}.\Epackage$/) {
+                    # package metadata
                     $bin_package = $1;
                     $version = $2;
                 }
@@ -821,7 +826,8 @@ sub Generate_Source {
     # Dump out various metadata.
 
     print $tmpfile_handle "Package: $source\n";
-    print $tmpfile_handle "Binary: " . join(', ', @{$dsc_data->{'Binary'}}) . "\n";
+    print $tmpfile_handle
+        "Binary: " . join(', ', @{$dsc_data->{'Binary'}}) . "\n";
     print $tmpfile_handle "Version: $dsc_data->{'Version'}\n";
     print $tmpfile_handle "Priority: $priority\n";
     print $tmpfile_handle "Section: $section\n";
@@ -829,18 +835,21 @@ sub Generate_Source {
 
     if (defined($dsc_data->{'Build-Depends'})) {
         print $tmpfile_handle 'Build-Depends: ';
-        print $tmpfile_handle join(', ', @{$dsc_data->{'Build-Depends'}}) . "\n";
+        print $tmpfile_handle
+            join(', ', @{$dsc_data->{'Build-Depends'}}) . "\n";
     }
 
     if (defined($dsc_data->{'Build-Depends-Indep'})) {
         print $tmpfile_handle 'Build-Depends-Indep: ';
-        print $tmpfile_handle join(', ', @{$dsc_data->{'Build-Depends-Indep'}}) . "\n";
+        print $tmpfile_handle
+            join(', ', @{$dsc_data->{'Build-Depends-Indep'}}) . "\n";
     }
 
     print $tmpfile_handle 'Architecture: ';
     print $tmpfile_handle join(' ', @{$dsc_data->{'Architecture'}}) . "\n";
 
-    print $tmpfile_handle "Standards-Version: $dsc_data->{'Standards-Version'}\n"
+    print $tmpfile_handle
+        "Standards-Version: $dsc_data->{'Standards-Version'}\n"
     if  exists $dsc_data->{'Standards-Version'};
     print $tmpfile_handle "Format: $dsc_data->{'Format'}\n";
     print $tmpfile_handle "Directory: " .  join('/',

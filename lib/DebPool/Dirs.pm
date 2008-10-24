@@ -122,7 +122,8 @@ sub Create_Tree {
         return 0;
     }
 
-    if (!Tree_Mkdir($Options{'installed_dir'}, $Options{'installed_dir_mode'})) {
+    if (!Tree_Mkdir($Options{'installed_dir'},
+        $Options{'installed_dir_mode'})) {
         return 0;
     }
 
@@ -311,7 +312,9 @@ sub Setup_Incoming_Watch {
     use DebPool::Logging qw(:functions :facility :level);
     use DebPool::Config;
     if (!eval{ require Linux::Inotify2; }) {
-        Log_Message("liblinux-inotify2-perl is required to activate inotify support for debpool.", LOG_GENERAL, LOG_WARNING);
+        my $msg = "liblinux-inotify2-perl is required to activate inotify ";
+        $msg .= "support for debpool.";
+        Log_Message($msg, LOG_GENERAL, LOG_WARNING);
         return 0;
     } else {
         use Linux::Inotify2;
@@ -391,7 +394,8 @@ sub Monitor_Incoming {
             sleep($Options{'sleep'});
             @stat = stat($Options{'incoming_dir'});
             if (!@stat) {
-                $Error = "Couldn't stat incoming_dir '$Options{'incoming_dir'}'";
+                $Error =
+                    "Couldn't stat incoming_dir '$Options{'incoming_dir'}'";
                 return;
             }
             return if $DebPool::Signal::Signal_Caught;

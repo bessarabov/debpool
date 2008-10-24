@@ -297,7 +297,8 @@ sub Generate_Release_Dist {
     print $tmpfile_handle "Codename: ${archive}\n";
     print $tmpfile_handle "Date: ${now_822}\n";
     print $tmpfile_handle "Architectures: " . join(' ', @archs) . "\n";
-    print $tmpfile_handle "Components: " . join(' ', @{$Options{'sections'}}) . "\n";
+    print $tmpfile_handle
+        "Components: " . join(' ', @{$Options{'sections'}}) . "\n";
     print $tmpfile_handle "Description: $Options{'release_description'}\n";
 
     # Now print MD5 and SHA1 checksum lists.

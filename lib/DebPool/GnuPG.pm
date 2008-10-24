@@ -109,14 +109,16 @@ sub Check_Signature {
     my($file, $signature) = @_;
 
     my(@args) = ('--verify', '--no-default-keyring');
-    push(@args, '--homedir', $Options{'gpg_home'}) if defined $Options{'gpg_home'};
+    push(@args, '--homedir', $Options{'gpg_home'}) if defined
+        $Options{'gpg_home'};
 
     foreach my $keyring (@{$Options{'gpg_keyrings'}}) {
         push(@args, '--keyring', $keyring);
     }
 
-    push(@args, '--');  # Always a good idea, even if we're pretty sure we won't
-                        # get any file names starting with "--" in this program.
+    # Always a good idea, even if we're pretty sure we won't get any file names
+    # starting with "--" in this program.
+    push(@args, '--');
 
     if (defined($signature)) {
         push(@args, $signature);
@@ -171,13 +173,18 @@ sub Sign_Release {
 
     # We are go for main engine start
 
-    my(@args) = ('--batch', '--no-tty', '--detach-sign', '--armor', '--output=-');
-    push(@args, '--homedir', $Options{'gpg_home'}) if defined $Options{'gpg_home'};
-    push(@args, '--default-key', $Options{'gpg_sign_key'}) if defined $Options{'gpg_sign_key'};
-    push(@args, '--passphrase-fd=0', '--passphrase-file', $Options{'gpg_passfile'}) if defined $Options{'gpg_passfile'};
+    my(@args) =
+        ('--batch', '--no-tty', '--detach-sign', '--armor', '--output=-');
+    push(@args, '--homedir', $Options{'gpg_home'}) if defined
+        $Options{'gpg_home'};
+    push(@args, '--default-key', $Options{'gpg_sign_key'}) if defined
+        $Options{'gpg_sign_key'};
+    push(@args, '--passphrase-fd=0', '--passphrase-file',
+        $Options{'gpg_passfile'}) if defined $Options{'gpg_passfile'};
     push(@args, '--', $release_file);
 
-    my($gnupg_pid) = open3(*DUMMY, ">&".fileno $tmpfile, *GPG_ERR, $Options{'gpg_bin'}, @args);
+    my($gnupg_pid) = open3(*DUMMY, ">&".fileno $tmpfile, *GPG_ERR,
+        $Options{'gpg_bin'}, @args);
     close DUMMY;
     my @loglines = <GPG_ERR>;
     waitpid($gnupg_pid, 0);
