@@ -1,3 +1,9 @@
+debpool (0.4.1) experimental; urgency=low
+
+  * Added 'DM-Upload-Allowed: yes' field.
+
+ -- Andres Mejia <mcitadel@gmail.com>  Fri, 24 Oct 2008 17:13:31 -0400
+
 debpool (0.4.0) experimental; urgency=low
 
   * Created a new module to handle file parsing.
