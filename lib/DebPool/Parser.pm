@@ -120,9 +120,9 @@ my %Field_Types = (
 
 # Parse_File($file)
 #
-# Parses a changes or dsc file. This method returns a hash of the different
-# types of data we want from each field. We use an internal method to help us
-# in placing an appropriate data type for each field (key) of our hash.
+# Parses a changes or dsc file. This method returns a hash reference of the
+# different types of data we want from each field. We use an internal method to
+# help us in placing an appropriate data type for each field (key) of our hash.
 
 sub Parse_File {
     my ($file) = @_;
@@ -154,7 +154,7 @@ sub Parse_File {
             # have a field to process. This is the usual case during the first
             # loop.
             if ($field) {
-                $fields{$field} = Process_Type($field, $file, @values);
+                $fields{$field} = Process_Type($field, $file, \@values);
             }
             @values = ();
             $field = $1;
@@ -168,7 +168,7 @@ sub Parse_File {
     # Once we're done with the for loop, we still have to process the last
     # field.
     if ($field) {
-        $fields{$field} = Process_Type($field, $file, @values);
+        $fields{$field} = Process_Type($field, $file, \@values);
     }
 
     # In case a valid binNMU is detected, Source will be written as
@@ -180,16 +180,17 @@ sub Parse_File {
         $fields{'Source-Version'} =~ s/^\(|\)$//g;
     }
 
-    return %fields;
+    return \%fields;
 }
 
-# Process_Type($field, $file, @values)
-
+# Process_Type($field, $file, $values)
+# Parameter data types (string, string, array_ref)
+#
 # This method will return a string, an array, or a hash depending on the field
 # we are processing.
 
 sub Process_Type {
-    my ($field, $file, @values) = @_;
+    my ($field, $file, $values) = @_;
 
     # Change the Files field type to appropriate type dependending on file
     # being parsed.
@@ -214,22 +215,22 @@ sub Process_Type {
     }
 
     if ($Field_Types{$field} eq 'string') {
-        return $values[0];
+        return ${$values}[0];
     } elsif ($Field_Types{$field} eq 'space_array') {
-        my @data = split /\s+/, $values[0];
+        my @data = split /\s+/, ${$values}[0];
         return \@data;
     } elsif ($Field_Types{$field} eq 'comma_array') {
-        my @data = split /,\s+/, $values[0];
+        my @data = split /,\s+/, ${$values}[0];
         return \@data;
     } elsif ($Field_Types{$field} eq 'multiline_array') {
-        return \@values;
+        return $values;
     } elsif ($Field_Types{$field} eq 'checksums') {
         # Checksum types are a special case. We return a hash where the
         # filenames are the keys, each containing the value of the checksum and
         # size inside an array, the first element being the checksum and the
         # second element being the size.
         my %data;
-        foreach my $value (@values) {
+        foreach my $value (@{$values}) {
             my ($checksum, $size, $file) = split /\s+/, $value;
             $data{$file} = [ $checksum, $size ];
         }
@@ -240,14 +241,14 @@ sub Process_Type {
         # So the first element is the checksum, the second is the size, the
         # third is the section and the fourth is the priority.
         my %data;
-        foreach my $value (@values) {
+        foreach my $value (@{$values}) {
             my ($checksum, $size, $section, $priority, $file) =
                 split /\s+/, $value;
             $data{$file} = [ $checksum, $size, $section, $priority ];
         }
         return \%data;
     } else { # Treat all unknown fields as multiline_arrays for now
-        return \@values;
+        return $values;
     }
 }
 

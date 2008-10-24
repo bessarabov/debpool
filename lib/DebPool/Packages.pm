@@ -309,7 +309,8 @@ sub Generate_List {
     return $tmpfile_name;
 }
 
-# Install_Package($changes, $changes_data, $DSC, $DSC_hashref, \@distributions)
+# Install_Package($changes, $dsc, $distributions, $changes_data, $dsc_data)
+# Parameter data types (string, string, array_ref, hash_ref, hash_ref)
 #
 # Install all of the package files for $changes_data into the pool directory,
 # and install the file in $changes to the installed directory. Also generates
@@ -323,18 +324,18 @@ sub Install_Package {
     use DebPool::DB qw(:functions :vars);
     use DebPool::Util qw(:functions);
 
-    my($changes, %changes_data, $dsc, %dsc_data, $distributions) = @_;
+    my($changes, $dsc, $distributions, $changes_data, $dsc_data) = @_;
 
     my $incoming_dir = $Options{'incoming_dir'};
     my $installed_dir = $Options{'installed_dir'};
     my $pool_dir = $Options{'pool_dir'};
 
-    my $pkg_name = $changes_data{'Source'};
+    my $pkg_name = $changes_data->{'Source'};
 
-    my $pkg_ver = $changes_data{'Version'};
-    my $source_version = $changes_data{'Source-Version'};
+    my $pkg_ver = $changes_data->{'Version'};
+    my $source_version = $changes_data->{'Source-Version'};
 
-    my $guess_section = Guess_Section(%changes_data);
+    my $guess_section = Guess_Section($changes_data);
     my $pkg_pool_subdir = join('/',
         ($pool_dir, PoolDir($pkg_name, $guess_section)));
     my $pkg_dir = join('/', ($pkg_pool_subdir, $pkg_name));
@@ -351,7 +352,7 @@ sub Install_Package {
     # Walk the File Hash, trying to install each listed file into the
     # pool directory.
 
-    foreach my $file (keys %{$changes_data{'Files'}}) {
+    foreach my $file (keys %{$changes_data->{'Files'}}) {
         if (!Move_File("${incoming_dir}/${file}", "${pkg_dir}/${file}",
                 $Options{'pool_file_mode'})) {
             $Error = "Failed to move '${incoming_dir}/${file}' ";
@@ -362,12 +363,12 @@ sub Install_Package {
 
     # Generate and install .package and .source metadata files.
 
-    my @pkg_archs = @{$changes_data{'Architecture'}};
+    my @pkg_archs = @{$changes_data->{'Architecture'}};
     @pkg_archs = grep(!/source/, @pkg_archs); # Source is on it's own.
 
     my $target;
     foreach my $pkg_arch (@pkg_archs) {
-        my $pkg_file = Generate_Package(%changes_data, $pkg_arch);
+        my $pkg_file = Generate_Package($changes_data, $pkg_arch);
 
         if (!defined($pkg_file)) {
             $Error = "Failed to generate .package file: $Error";
@@ -383,8 +384,8 @@ sub Install_Package {
         }
     }
 
-    if ($dsc && %dsc_data) {
-        my $src_file = Generate_Source($dsc, %dsc_data, %changes_data);
+    if ($dsc && %{$dsc_data}) {
+        my $src_file = Generate_Source($dsc, $dsc_data, $changes_data);
 
         if (!defined($src_file)) {
             $Error = "Failed to generate .source file: $Error";
@@ -410,20 +411,17 @@ sub Install_Package {
     }
 
     # Update the various databases.
-
-    my $distribution;
-
     # This whole block is just to calculate the component. What a stupid
     # setup - it should be in the changes file. Oh well.
 
-    my @filearray = (keys %{$changes_data{'Files'}});
+    my @filearray = (keys %{$changes_data->{'Files'}});
     my $fileref = $filearray[0];
-    my $section = $changes_data{'Files'}{$fileref}[2];
+    my $section = $changes_data->{'Files'}{$fileref}[2];
     my $component = Strip_Subsection($section);
 
     foreach my $distribution (@{$distributions}) {
         Set_Versions($distribution, $pkg_name, $pkg_ver,
-            $changes_data{'Files'});
+            $changes_data->{'Files'});
         $ComponentDB{$distribution}->{$pkg_name} = $component;
     }
     if ( $section eq 'debian-installer' ) {
@@ -434,6 +432,7 @@ sub Install_Package {
 }
 
 # Reject_Package($changes, $changes_data)
+# Parameter data types (string, hash_ref)
 #
 # Move all of the package files for $changes_data (which should be a
 # Parse_Changes result hash) into the rejected directory, as well as the
@@ -444,7 +443,7 @@ sub Reject_Package {
     use DebPool::DB qw(:functions);
     use DebPool::Util qw(:functions);
 
-    my($changes, %changes_data) = @_;
+    my($changes, $changes_data) = @_;
 
     my $incoming_dir = $Options{'incoming_dir'};
     my $reject_dir = $Options{'reject_dir'};
@@ -452,7 +451,7 @@ sub Reject_Package {
 
     # Walk the File Hash, moving each file to the rejected directory.
 
-    foreach my $file (keys %{$changes_data{'Files'}}) {
+    foreach my $file (keys %{$changes_data->{'Files'}}) {
         if (!Move_File("$incoming_dir/$file", "$reject_dir/$file",
                 $reject_file_mode)) {
             $Error = "Failed to move '$incoming_dir/$file' ";
@@ -514,6 +513,7 @@ sub Verify_MD5 {
 }
 
 # Audit_Package($package, $changes_data)
+# Parameter data types (string, hash_ref)
 #
 # Delete a package and changes files for the named (source) package which
 # are not referenced by any version currently found in the various release
@@ -525,20 +525,20 @@ sub Audit_Package {
     use DebPool::Dirs qw(:functions);
     use DebPool::Logging qw(:functions :facility :level);
 
-    my($package, $changefile, %changes_data) = @_;
+    my($package, $changefile, $changes_data) = @_;
 
     # Checking for version of package being installed
-    my $changes_version = $changes_data{'Version'};
+    my $changes_version = $changes_data->{'Version'};
 
     my $installed_dir = $Options{'installed_dir'};
     my $pool_dir = $Options{'pool_dir'};
 
-    my $section = Guess_Section(%changes_data);
+    my $section = Guess_Section($changes_data);
     my $package_dir = join('/',
         ($pool_dir, PoolDir($package, $section), $package));
 
     my @changes = grep(/${package}_/, Scan_Changes($installed_dir));
-    my @changes_arch = @{$changes_data{'Architecture'}};
+    my @changes_arch = @{$changes_data->{'Architecture'}};
 
     my $pool_scan = Scan_All($package_dir);
     if (!defined($pool_scan)) {
@@ -669,7 +669,8 @@ sub Audit_Package {
     return $unlinked;
 }
 
-# Generate_Package($changes_data)
+# Generate_Package($changes_data, $arch)
+# Parameter data types (hash_ref, string)
 #
 # Generates a .package metadata file (Packages entries for each binary
 # package) in the tempfile area, and returns the filename. Returns undef
@@ -680,18 +681,18 @@ sub Generate_Package {
     use DebPool::Dirs qw(:functions);
     use DebPool::Logging qw(:functions :facility :level);
 
-    my(%changes_data, $arch) = @_;
-    my $source = $changes_data{'Source'};
-    my $source_version = $changes_data{'Source-Version'};
+    my($changes_data, $arch) = @_;
+    my $source = $changes_data->{'Source'};
+    my $source_version = $changes_data->{'Source-Version'};
 
-    my @files = (keys %{$changes_data{'Files'}});
+    my @files = (keys %{$changes_data->{'Files'}});
     my $pool_base = PoolBasePath();
 
     # Grab a temporary file.
 
     my($tmpfile_handle, $tmpfile_name) = tempfile();
 
-    my @packages = @{$changes_data{'Binary'}};
+    my @packages = @{$changes_data->{'Binary'}};
 
     my $package;
 
@@ -704,7 +705,7 @@ sub Generate_Package {
         # without the epoch" -- it is more or less arbitrary, as long
         # as it is a well-formed version number).
         my $filepat = qr/^\Q${package}_\E.*\Q_${arch}.\Eu?deb/;
-        my $section = Guess_Section(%changes_data);
+        my $section = Guess_Section($changes_data);
         my $pool = join('/', (PoolDir($source, $section), $source));
 
         my $marker = -1;
@@ -748,14 +749,14 @@ sub Generate_Package {
 
         print $tmpfile_handle "Installed-Size: $info->{'Installed-Size'}\n";
 
-        print $tmpfile_handle "Maintainer: $changes_data{'Maintainer'}\n";
+        print $tmpfile_handle "Maintainer: $changes_data->{'Maintainer'}\n";
         print $tmpfile_handle "Architecture: $arch\n";
         if ($source_version) {
             print $tmpfile_handle "Source: $source" . "_($source_version)\n";
         } else {
             print $tmpfile_handle "Source: $source\n";
         }
-        print $tmpfile_handle "Version: $changes_data{'Version'}\n";
+        print $tmpfile_handle "Version: $changes_data->{'Version'}\n";
 
         # All of the inter-package relationships go together, and any
         # one of them can potentially be empty (and omitted).
@@ -772,9 +773,9 @@ sub Generate_Package {
         print $tmpfile_handle "Filename: $pool_base/$pool/$file\n";
 
         print $tmpfile_handle "Size: " .
-            $changes_data{'Files'}{$files[$marker]}[1] . "\n";
+            $changes_data->{'Files'}{$files[$marker]}[1] . "\n";
         print $tmpfile_handle "MD5sum: " .
-            $changes_data{'Files'}{$files[$marker]}[0] . "\n";
+            $changes_data->{'Files'}{$files[$marker]}[0] . "\n";
 
         print $tmpfile_handle "Description: $info->{'Description'}";
 
@@ -788,6 +789,7 @@ sub Generate_Package {
 }
 
 # Generate_Source($dsc, $dsc_data, $changes_data)
+# Parameter data types (string, hash_ref, hash_ref)
 #
 # Generates a .source metadata file (Sources entries for the source
 # package) in the tempfile area, and returns the filename. Returns undef
@@ -797,18 +799,18 @@ sub Generate_Source {
     use DebPool::Dirs qw(:functions);
     use DebPool::Logging qw(:functions :facility :level);
 
-    my($dsc, %dsc_data, %changes_data) = @_;
-    my $source = $dsc_data{'Source'};
-    my @files = (keys %{$dsc_data{'Files'}});
+    my($dsc, $dsc_data, $changes_data) = @_;
+    my $source = $dsc_data->{'Source'};
+    my @files = (keys %{$dsc_data->{'Files'}});
 
     # Figure out the priority and section, using the DSC filename and
     # the Changes file data.
 
     my ($section, $priority);
-    foreach my $filehr (keys %{$changes_data{'Files'}}) {
+    foreach my $filehr (keys %{$changes_data->{'Files'}}) {
         if ($filehr eq $dsc) {
-            $section = $changes_data{'Files'}{$filehr}[2];
-            $priority = $changes_data{'Files'}{$filehr}[3];
+            $section = $changes_data->{'Files'}{$filehr}[2];
+            $priority = $changes_data->{'Files'}{$filehr}[3];
         }
     }
 
@@ -819,36 +821,36 @@ sub Generate_Source {
     # Dump out various metadata.
 
     print $tmpfile_handle "Package: $source\n";
-    print $tmpfile_handle "Binary: " . join(', ', @{$dsc_data{'Binary'}}) . "\n";
-    print $tmpfile_handle "Version: $dsc_data{'Version'}\n";
+    print $tmpfile_handle "Binary: " . join(', ', @{$dsc_data->{'Binary'}}) . "\n";
+    print $tmpfile_handle "Version: $dsc_data->{'Version'}\n";
     print $tmpfile_handle "Priority: $priority\n";
     print $tmpfile_handle "Section: $section\n";
-    print $tmpfile_handle "Maintainer: $dsc_data{'Maintainer'}\n";
+    print $tmpfile_handle "Maintainer: $dsc_data->{'Maintainer'}\n";
 
-    if (defined($dsc_data{'Build-Depends'})) {
+    if (defined($dsc_data->{'Build-Depends'})) {
         print $tmpfile_handle 'Build-Depends: ';
-        print $tmpfile_handle join(', ', @{$dsc_data{'Build-Depends'}}) . "\n";
+        print $tmpfile_handle join(', ', @{$dsc_data->{'Build-Depends'}}) . "\n";
     }
 
-    if (defined($dsc_data{'Build-Depends-Indep'})) {
+    if (defined($dsc_data->{'Build-Depends-Indep'})) {
         print $tmpfile_handle 'Build-Depends-Indep: ';
-        print $tmpfile_handle join(', ', @{$dsc_data{'Build-Depends-Indep'}}) . "\n";
+        print $tmpfile_handle join(', ', @{$dsc_data->{'Build-Depends-Indep'}}) . "\n";
     }
 
     print $tmpfile_handle 'Architecture: ';
-    print $tmpfile_handle join(' ', @{$dsc_data{'Architecture'}}) . "\n";
+    print $tmpfile_handle join(' ', @{$dsc_data->{'Architecture'}}) . "\n";
 
-    print $tmpfile_handle "Standards-Version: $dsc_data{'Standards-Version'}\n"
-    if  exists $dsc_data{'Standards-Version'};
-    print $tmpfile_handle "Format: $dsc_data{'Format'}\n";
+    print $tmpfile_handle "Standards-Version: $dsc_data->{'Standards-Version'}\n"
+    if  exists $dsc_data->{'Standards-Version'};
+    print $tmpfile_handle "Format: $dsc_data->{'Format'}\n";
     print $tmpfile_handle "Directory: " .  join('/',
         (PoolBasePath(), PoolDir($source, $section), $source)) . "\n";
 
     print $tmpfile_handle "Files:\n";
 
     foreach my $fileref (@files) {
-        print $tmpfile_handle " " . $dsc_data{'Files'}{$fileref}[0];
-        print $tmpfile_handle " " . $dsc_data{'Files'}{$fileref}[1];
+        print $tmpfile_handle " " . $dsc_data->{'Files'}{$fileref}[0];
+        print $tmpfile_handle " " . $dsc_data->{'Files'}{$fileref}[1];
         print $tmpfile_handle " $fileref\n";
     }
 
@@ -900,7 +902,8 @@ sub Dpkg_Info {
     return \%result;
 }
 
-# Install_List($archive, $component, $architecture, $listfile, @zfiles)
+# Install_List($archive, $component, $architecture, $listfile, $zfiles)
+# Parameter data types (string, string, string, string, array_ref)
 #
 # Installs a distribution list file (from Generate_List), along with an
 # optional gzipped version of the same file (if $gzfile is defined).
@@ -910,7 +913,7 @@ sub Install_List {
     use DebPool::Config qw(:vars);
     use DebPool::Dirs qw(:functions);
 
-    my($archive, $component, $architecture, $listfile, @zfiles) = @_;
+    my($archive, $component, $architecture, $listfile, $zfiles) = @_;
 
     my $dists_file_mode = $Options{'dists_file_mode'};
     my $inst_file = "$Options{'dists_dir'}/";
@@ -924,7 +927,7 @@ sub Install_List {
         return 0;
     }
 
-    foreach my $zfile (@zfiles) {
+    foreach my $zfile (@{$zfiles}) {
     my ($ext) = $zfile =~ m{\.([^/]+)$};
         if (!Move_File($zfile, "${inst_file}.${ext}",
                 $dists_file_mode)) {
@@ -938,6 +941,7 @@ sub Install_List {
 }
 
 # Guess_Section($changes_data)
+# Parameter data types (hash_ref)
 #
 # Attempt to guess the freeness section of a package based on the data
 # for the first file listed in the changes.
@@ -948,10 +952,10 @@ sub Guess_Section {
     # section, which is based solely on freeness-sections (main, contrib,
     # non-free).
 
-    my(%changes_data) = @_;
+    my($changes_data) = @_;
 
-    my @changes_files = (keys %{$changes_data{'Files'}});
-    return $changes_data{'Files'}{$changes_files[0]}[2];
+    my @changes_files = (keys %{$changes_data->{'Files'}});
+    return $changes_data->{'Files'}{$changes_files[0]}[2];
 }
 
 # Strip_Epoch($version)
