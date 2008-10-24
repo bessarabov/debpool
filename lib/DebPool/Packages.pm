@@ -135,7 +135,12 @@ my %Changes_Fields = (
     'Urgency' => 'string',
     'Maintainer' => 'string',
     'Changed-By' => 'string',
+    'Description' => 'multiline_array',
     'Closes' => 'space_array',
+    'Changes' => 'multiline_array',
+    'Checksums-Sha1' => 'multiline_array',
+    'Checksums-Sha256' => 'multiline_array',
+    'Files' => 'multiline_array'
 );
 
 # Normal fields potentially found in .dsc files
@@ -143,13 +148,20 @@ my %Changes_Fields = (
 my %DSC_Fields = (
     'Format' => 'string',
     'Source' => 'string',
-    'Version' => 'string',
     'Binary' => 'comma_array',
-    'Maintainer' => 'string',
     'Architecture' => 'space_array',
+    'Version' => 'string',
+    'Maintainer' => 'string',
+    'Uploaders' => 'comma_array',
+    'Homepage' => 'string',
     'Standards-Version' => 'string',
+    'Vcs-Browser' => 'string',
+#    'Vcs-Any' => 'string', # TODO: Handle these entries somewhere
     'Build-Depends' => 'comma_array',
     'Build-Depends-Indep' => 'comma_array',
+    'Checksums-Sha1' => 'multiline_array',
+    'Checksums-Sha256' => 'multiline_array',
+    'Files' => 'multiline_array',
 );
 
 ### File lexicals

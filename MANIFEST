@@ -13,3 +13,4 @@ lib/DebPool/Bzip2.pm
 lib/DebPool/Config.pm
 # lib/DebPool/Hooks.pm
 lib/DebPool/DB.pm
+lib/DebPool/Parser.pm

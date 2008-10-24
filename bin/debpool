@@ -50,6 +50,7 @@ use DebPool::GnuPG qw(:functions :vars); # GnuPG interaction routines
 use DebPool::Logging qw(:functions :facility :level); # Logging routines
 use DebPool::Packages qw(:functions :vars); # Distribution databases
 use DebPool::Signal qw(:functions :vars); # Handle signals
+use DebPool::Parser qw(:functions :vars); # File parsing routines
 
 # Before we do anything else, let's find out if we need to act as a daemon,
 # and if so, whether we can manage to pull it off.

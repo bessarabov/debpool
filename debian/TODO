@@ -2,6 +2,7 @@ Features, fixes, and other stuff to be done.
 
 (general)
 
+* Parse_DSC and Parse_Changes need to handle multiline entries better.
 * Support tools for manipulating metadata (which really means 'anything
   stored in database files').
 * Support rebuild-dbs (including invocation from rebuild-all)?
