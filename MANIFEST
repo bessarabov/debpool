@@ -1,16 +1,23 @@
-Makefile.PL
-MANIFEST
-# t/DebPool.t
-lib/DebPool/Packages.pm
-lib/DebPool/Util.pm
-lib/DebPool/Signal.pm
-lib/DebPool/Release.pm
-lib/DebPool/Logging.pm
-lib/DebPool/GnuPG.pm
-lib/DebPool/Gzip.pm
-lib/DebPool/Dirs.pm
+bin/debpool
+examples/debpoolrc
+examples/multiple_debpools/debpool-distro.default
+examples/multiple_debpools/debpool-distro.init
+examples/multiple_debpools/distro-debpoolrc
+examples/multiple_debpools/README
 lib/DebPool/Bzip2.pm
 lib/DebPool/Config.pm
-# lib/DebPool/Hooks.pm
 lib/DebPool/DB.pm
+lib/DebPool/Dirs.pm
+lib/DebPool/GnuPG.pm
+lib/DebPool/Gzip.pm
+lib/DebPool/Logging.pm
+lib/DebPool/Packages.pm
 lib/DebPool/Parser.pm
+lib/DebPool/Release.pm
+lib/DebPool/Signal.pm
+lib/DebPool/Util.pm
+Makefile.PL
+MANIFEST
+MANIFEST.SKIP
+pure-perl-testing/debperltest
+pure-perl-testing/README

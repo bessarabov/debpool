@@ -78,4 +78,11 @@ binary-indep: build install
 	dh_builddeb
 
 binary: binary-indep binary-arch
+
+# Add a target to rewrite the manifest file
+rewrite-manifest: clean
+	$(PERL) Makefile.PL INSTALLDIRS=vendor \
+		VERSION=$(DEBPOOL_VERSION)
+	$(MAKE) manifest
+
 .PHONY: build clean binary-indep binary-arch binary install

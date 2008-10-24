@@ -1,0 +1,12 @@
+# Regex of files and directories we don't want included in manifest
+# git version control directory
+\B\.git\b
+
+# Debian directory
+^debian/
+
+# Makemaker generated files and dirs.
+^MANIFEST\.bak
+^Makefile$
+^blib/
+^MakeMaker-\d
