@@ -209,10 +209,10 @@ sub Get_Archs {
     return @{$Options{'archs'}};
 }
 
-# Set_Versions($dist, $source, $file_arrayref)
+# Set_Versions($dist, $source, $file_hashref)
 
 sub Set_Versions {
-    my($dist, $source, $meta_version, $file_arrayref) = @_;
+    my($dist, $source, $meta_version, %file_hashref) = @_;
     my (%entries, %archs);
     my($oldversion, $oldbinlist, $archlist);
     ($oldversion, $oldbinlist, $archlist) =
@@ -243,11 +243,9 @@ sub Set_Versions {
     #
     # FIXME: Do udeb files have different versions from deb files?
 
-    my(@files) = @{$file_arrayref};
+    my(@files) = (keys %file_hashref);
 
-    foreach my $hashref (@files) {
-        my($filename) = $hashref->{'Filename'};
-
+    foreach my $filename (@files) {
         if ($filename =~ m/^([^_]+)_([^_]+)_(.+)\.u?deb/) {
             my($package, $version, $arch) = ($1, $2, $3);
 

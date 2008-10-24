@@ -87,7 +87,7 @@ my %Field_Types = (
     'Binary' => 'space_array', # both
     'Architecture' => 'space_array', # both
     'Version' => 'string', # both
-    'Distribution' => 'string', # both
+    'Distribution' => 'space_array', # both
     'Urgency' => 'string', # changes
     'Maintainer' => 'string', # both
     'Changed-By' => 'string', # changes
@@ -96,7 +96,7 @@ my %Field_Types = (
     'Changes' => 'multiline_array', # changes
     'Checksums-Sha1' => 'checksums', # both
     'Checksums-Sha256' => 'checksums', # both
-    'Files' => 'checksums', # both
+#    'Files' => 'checksums', # both (of 'file_entries' type for changes file)
     'Uploaders' => 'comma_array', # dsc
     'Homepage' => 'string', # dsc
     'Standards-Version' => 'string', # dsc
@@ -127,6 +127,9 @@ my %Field_Types = (
 sub Parse_File {
     my ($file) = @_;
 
+    use DebPool::GnuPG qw(:functions); # To strip GPG encoding
+
+
     # Read in the entire file, stripping GPG encoding if we find
     # it. It should be small, this is fine.
     my $fh;
@@ -135,8 +138,9 @@ sub Parse_File {
         return;
     }
     my @data = <$fh>;
-    chomp @data;
     close $fh;
+    chomp @data;
+    @data = Strip_GPG(@data);
 
     # Add a key in a hash corresponding to the Field of the file we're parsing.
     # Then add the corresponding values. We first start by adding the values
@@ -144,7 +148,7 @@ sub Parse_File {
     my ($field, @values, %fields);
     foreach my $line (@data) {
         if ($line eq '') {
-            next; # Ignore blank lines
+            last; # End of the paragraph (stanza)
         } elsif ($line =~ m/^([^:\s]+):\s?(.*)$/) {
             # We process entries for the last field so we must ensure that we
             # have a field to process. This is the usual case during the first
@@ -176,7 +180,7 @@ sub Parse_File {
         $fields{'Source-Version'} =~ s/^\(|\)$//g;
     }
 
-    return \%fields;
+    return %fields;
 }
 
 # Process_Type($field, $file, @values)
@@ -187,10 +191,15 @@ sub Parse_File {
 sub Process_Type {
     my ($field, $file, @values) = @_;
 
-    # Change the Files field type to file_entries if a changes file is being
-    # parsed.
-    if (($field eq 'Files') and ($file =~ m/.*\.changes$/)) {
-        $Field_Types{$field} = 'file_entries';
+    # Change the Files field type to appropriate type dependending on file
+    # being parsed.
+    my $fieldtype = $Field_Types{$field};
+    if ($field eq 'Files') {
+        if ($file =~ m/^.*\Q.changes\E$/) {
+            $Field_Types{$field} = 'file_entries';
+        } else {
+            $Field_Types{$field} = 'checksums';
+        }
     }
 
     # Add the Vcs-* entries into the %Field_Types hash. We do this to
@@ -217,7 +226,8 @@ sub Process_Type {
     } elsif ($Field_Types{$field} eq 'checksums') {
         # Checksum types are a special case. We return a hash where the
         # filenames are the keys, each containing the value of the checksum and
-        # size in an array.
+        # size inside an array, the first element being the checksum and the
+        # second element being the size.
         my %data;
         foreach my $value (@values) {
             my ($checksum, $size, $file) = split /\s+/, $value;
@@ -227,6 +237,8 @@ sub Process_Type {
     } elsif ($Field_Types{$field} eq 'file_entries') {
         # File entries in a changes file are similar to the checksum type,
         # except that they also include the section and priority of a file.
+        # So the first element is the checksum, the second is the size, the
+        # third is the section and the fourth is the priority.
         my %data;
         foreach my $value (@values) {
             my ($checksum, $size, $section, $priority, $file) =

@@ -191,43 +191,35 @@ if ($Options{'rebuild-files'}) {
 foreach my $changefile (@changefiles) {
     Log_Message("Processing changefile '$changefile'", LOG_GENERAL, LOG_INFO);
 
-    my($changes_data) = Parse_Changes("$Options{'incoming_dir'}/$changefile");
-    if (!defined($changes_data)) {
+    my %changes_data = Parse_File("$Options{'incoming_dir'}/$changefile");
+    if (!%changes_data) {
         Log_Message("Failure parsing changes file '$changefile': " .
                     $DebPool::Packages::Error, LOG_GENERAL, LOG_ERROR);
         next;
     }
 
     # Name of the source package
-    my($package) = $changes_data->{'Source'};
-
-    # In case a valid binNMU is detected, Source will be written as
-    # <package> (<original_version>). We must strip the extra version from the
-    # string.
-    my($source_version);
-    ($package, $source_version) = split(/ /, $package);
-    $source_version =~ s/^\(|\)$//g if defined $source_version;
+    my($package) = $changes_data{'Source'};
 
     # Version of the package
-    my($version) = $changes_data->{'Version'};
+    my $version = $changes_data{'Version'};
+    my $source_version = $changes_data{'Source-Version'};
 
     # The .dsc file will be either $package_$version.dsc or
     # $package_$source_version.dsc dependending if a binNMU was uploaded or not.
     # Also, we want to strip any epochs that might be present in the versions.
     my($dscfile, $dscfile_version);
     if ($source_version) {
-        $dscfile_version = $source_version;
-        $dscfile_version =~ s/^[^:]://;
+        $dscfile_version = Strip_Epoch($source_version);
         $dscfile = $package . "_$dscfile_version.dsc"
     } else {
-        $dscfile_version = $version;
-        $dscfile_version =~ s/^[^:]://;
+        $dscfile_version = Strip_Epoch($version);
         $dscfile = $package . "_$dscfile_version.dsc"
     }
 
     my($with_source) = undef; # Upload with or without source?
 
-    for my $temp (@{$changes_data->{'Architecture'}}) {
+    for my $temp (@{$changes_data{'Architecture'}}) {
         if ('source' eq $temp) {
             $with_source = 1;
         }
@@ -235,16 +227,16 @@ foreach my $changefile (@changefiles) {
 
     my($has_orig) = undef; # Has an orig tarball?
 
-    foreach my $filehr (@{$changes_data->{'Files'}}) {
-        if ($filehr->{'Filename'} =~ /orig\.tar\.gz/) {
+    foreach my $filehr (keys %{$changes_data{'Files'}}) {
+        if ($filehr =~ m/\Qorig.tar.gz\E$/) {
             $has_orig = 1;
         }
     }
 
-    my($dsc_data);
+    my %dsc_data;
     if ($with_source) {
-        $dsc_data = Parse_DSC("$Options{'incoming_dir'}/$dscfile");
-        if ($with_source && !defined($dsc_data)) {
+        %dsc_data = Parse_File("$Options{'incoming_dir'}/$dscfile");
+        if ($with_source && !%dsc_data) {
             Log_Message("Failure parsing dsc file '$dscfile': " .
                     $DebPool::Packages::Error, LOG_GENERAL, LOG_ERROR);
             next;
@@ -255,7 +247,7 @@ foreach my $changefile (@changefiles) {
         # First, check the changefile signature
 
         if (!Check_Signature("$Options{'incoming_dir'}/$changefile")) {
-            Reject_Package($changefile, $changes_data);
+            Reject_Package($changefile, %changes_data);
             Log_Message("GPG signature failure in changes file '$changefile'",
                         LOG_REJECT, LOG_ERROR);
             next;
@@ -267,7 +259,7 @@ foreach my $changefile (@changefiles) {
         # Now check the dscfile signature
 
         if ($with_source && !Check_Signature("$Options{'incoming_dir'}/$dscfile")) {
-            Reject_Package($changefile, $changes_data);
+            Reject_Package($changefile, %changes_data);
             Log_Message("GPG signature failure in dsc file '$dscfile'",
                         LOG_REJECT, LOG_ERROR);
             next;
@@ -281,15 +273,15 @@ foreach my $changefile (@changefiles) {
 
     my($valid) = 1;
 
-    foreach my $filehr (@{$changes_data->{'Files'}}) {
-        if (!(Verify_MD5("$Options{'incoming_dir'}/$filehr->{'Filename'}",
-                        $filehr->{'MD5Sum'}))) {
+    foreach my $filehr (keys %{$changes_data{'Files'}}) {
+        if (!(Verify_MD5("$Options{'incoming_dir'}/$filehr",
+                        $changes_data{'Files'}{$filehr}[0]))) {
             $valid = undef;
         }
     }
 
     if (!$valid) {
-        Reject_Package($changefile, $changes_data);
+        Reject_Package($changefile, %changes_data);
 
         my($msg) = "MD5 checksum failure in changes file '$changefile'";
         Log_Message($msg, LOG_REJECT, LOG_ERROR);
@@ -300,24 +292,23 @@ foreach my $changefile (@changefiles) {
     my($rejected) = undef;
 
     if ($with_source) {
-        foreach my $filehr (@{$dsc_data->{'Files'}}) {
+        foreach my $file (keys %{$dsc_data{'Files'}}) {
             # A bit of a special case here; if the Changes file lists an
             # orig tarball, we must *not* have one for that version in the
             # pool. If it doesn't, then we *must* have one. In either case,
             # as long as it's in the right place we use that file for the
             # MD5Sum check when the file is listed in the DSC.
 
-            my($file) = $filehr->{'Filename'};
-
-            if ($file =~ /orig\.tar\.gz/) {
-                my($section) = Guess_Section($changes_data);
+            my $filekey = $file; # Save the key value for later use
+            if ($file =~ /\Qorig.tar.gz\E$/) {
+                my($section) = Guess_Section(%changes_data);
                 my($pkg_pooldir) = join('/',
                     ($Options{'pool_dir'}, PoolDir($package, $section),
                     $package));
 
                 if ($has_orig) { # Orig tarball uploaded
                     if ((!$Options{'rollback'}) && (-e "$pkg_pooldir/$file")) {
-                        Reject_Package($changefile, $changes_data);
+                        Reject_Package($changefile, %changes_data);
 
                         my($msg) = "Duplicate orig tarball '$file'";
                         Log_Message($msg, LOG_REJECT, LOG_ERROR);
@@ -325,7 +316,7 @@ foreach my $changefile (@changefiles) {
                         $rejected = 1;
                         last; # Don't check other files, we just rejected
                     } elsif (!(-e "$Options{'incoming_dir'}/$file")) {
-                        Reject_Package($changefile, $changes_data);
+                        Reject_Package($changefile, %changes_data);
 
                         my($msg) = "Missing orig tarball '$file'";
                         Log_Message($msg, LOG_REJECT, LOG_ERROR);
@@ -337,7 +328,7 @@ foreach my $changefile (@changefiles) {
                     }
                 } else { # Orig tarball in pool - we hope
                     if (!(-e "$pkg_pooldir/$file")) {
-                        Reject_Package($changefile, $changes_data);
+                        Reject_Package($changefile, %changes_data);
 
                         my($msg) = "Missing orig tarball '$file'";
                         Log_Message($msg, LOG_REJECT, LOG_ERROR);
@@ -354,20 +345,20 @@ foreach my $changefile (@changefiles) {
 
             # Whatever it is, it must also pass the MD5 checksum test.
 
-            if (!(Verify_MD5($file, $filehr->{'MD5Sum'}))) {
+            if (!(Verify_MD5($file, $dsc_data{'Files'}{$filekey}[0]))) {
                 $valid = undef;
                 last; # Don't check other files, we already failed
             }
         }
     } else { # Assuming a binary only upload
         # The dsc file should be uploaded
-        my($section) = Guess_Section($changes_data);
+        my($section) = Guess_Section(%changes_data);
         my($pkg_pooldir) = join('/',
             ($Options{'pool_dir'}, PoolDir($package, $section),
             $package));
         my $dsc_check = "$pkg_pooldir/$dscfile";
         if ( ! -e $dsc_check ) {
-            Reject_Package($changefile, $changes_data);
+            Reject_Package($changefile, %changes_data);
 
             my($msg) = "Attempted to do a binary only upload but the ";
             $msg .= "source information for this package has not been ";
@@ -377,9 +368,9 @@ foreach my $changefile (@changefiles) {
             $rejected = 1;
             last; # Don't check other files, we just rejected
         }
-        foreach my $filehr (@{$changes_data->{'Files'}}) {
-            my($file) = $filehr->{'Filename'};
-            if (!(Verify_MD5($file, $filehr->{'MD5Sum'}))) {
+        foreach my $filehr (keys %{$changes_data{'Files'}}) {
+            my($file) = $filehr;
+            if (!(Verify_MD5($file, $changes_data{'Files'}{$filehr}[0]))) {
                 $valid = undef;
                 last; # Don't check other files, we failed
             }
@@ -389,7 +380,7 @@ foreach my $changefile (@changefiles) {
     next if ($rejected); # Reject message already logged, go to next package.
 
     if (!$valid) {
-        Reject_Package($changefile, $changes_data);
+        Reject_Package($changefile, %changes_data);
 
         my($msg) = "MD5 checksum failure in dsc file '$dscfile'";
         Log_Message($msg, LOG_REJECT, LOG_ERROR);
@@ -400,11 +391,11 @@ foreach my $changefile (@changefiles) {
     # is configured for that arch.
 
     $rejected = undef;
-    my @chg_archs = grep(!/^(source|all)$/, @{$changes_data->{'Architecture'}});
+    my @chg_archs = grep(!/^(source|all)$/, @{$changes_data{'Architecture'}});
 
     foreach my $chg_arch (@chg_archs) {
         unless ( grep /^\Q$chg_arch\E$/, @{$Options{'archs'}} ) {
-            Reject_Package($changefile, $changes_data);
+            Reject_Package($changefile, %changes_data);
             my($msg) = "The archive isn't configured for '$chg_arch' type packages.";
             Log_Message($msg, LOG_REJECT, LOG_ERROR);
             $rejected = 1;
@@ -419,7 +410,7 @@ foreach my $changefile (@changefiles) {
 
     my(@valid_dists);
 
-    foreach my $distribution (@{$changes_data->{'Distribution'}}) {
+    foreach my $distribution (@{$changes_data{'Distribution'}}) {
         my $realdist = undef;
 
         if (defined($Options{'virtual_dists'}->{$distribution})) {
@@ -436,7 +427,7 @@ foreach my $changefile (@changefiles) {
             next;
         }
 
-        my($allow) = Allow_Version($package, $version, $realdist, $changes_data->{'Architecture'});
+        my($allow) = Allow_Version($package, $version, $realdist, $changes_data{'Architecture'});
 
         if (!defined($allow)) {
             Log_Message("Version check for $version failed: " .
@@ -456,7 +447,7 @@ foreach my $changefile (@changefiles) {
     }
 
     if (-1 == $#valid_dists) {
-        Reject_Package($changefile, $changes_data);
+        Reject_Package($changefile, %changes_data);
         Log_Message("No valid distributions for version $version of $package",
                     LOG_REJECT, LOG_ERROR);
         next;
@@ -464,7 +455,7 @@ foreach my $changefile (@changefiles) {
 
     # Install the package
 
-    if (Install_Package($changefile, $changes_data, $dscfile, $dsc_data, \@valid_dists)) {
+    if (Install_Package($changefile, %changes_data, $dscfile, %dsc_data, \@valid_dists)) {
         foreach my $dist (@valid_dists) {
             $rebuild{$dist} = 1;
         }
@@ -484,7 +475,7 @@ foreach my $changefile (@changefiles) {
     # And, now that that's done, audit the package area in the pool to get
     # rid of crufty, obsolete versions.
 
-    Audit_Package($package, $changefile, $changes_data);
+    Audit_Package($package, $changefile, %changes_data);
 }
 
 # Regenerate {Packages,Sources}{,.gz} for distributions which need it. Also

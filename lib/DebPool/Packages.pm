@@ -69,17 +69,16 @@ BEGIN {
         &Guess_Section
         &Install_List
         &Install_Package
-        &Parse_Changes
-        &Parse_DSC
         &Reject_Package
         &Verify_MD5
+        &Strip_Epoch
     );
 
     %EXPORT_TAGS = (
         'functions' => [qw(&Allow_Version &Audit_Package &Generate_List
                         &Generate_Package &Generate_Source &Guess_Section
-                        &Install_List &Install_Package &Parse_Changes
-                        &Parse_DSC &Reject_Package &Verify_MD5)],
+                        &Install_List &Install_Package &Reject_Package
+                        &Verify_MD5 &Strip_Epoch)],
         'vars' => [qw()],
     );
 }
@@ -120,48 +119,6 @@ my @Relationship_Fields = (
     'Suggests',
     'Enhances',
     'Replaces',
-);
-
-# Normal fields potentially found in .changes files
-
-my %Changes_Fields = (
-    'Format' => 'string',
-    'Date' => 'string',
-    'Source' => 'string',
-    'Binary' => 'space_array',
-    'Architecture' => 'space_array',
-    'Version' => 'string',
-    'Distribution' => 'space_array',
-    'Urgency' => 'string',
-    'Maintainer' => 'string',
-    'Changed-By' => 'string',
-    'Description' => 'multiline_array',
-    'Closes' => 'space_array',
-    'Changes' => 'multiline_array',
-    'Checksums-Sha1' => 'multiline_array',
-    'Checksums-Sha256' => 'multiline_array',
-    'Files' => 'multiline_array'
-);
-
-# Normal fields potentially found in .dsc files
-
-my %DSC_Fields = (
-    'Format' => 'string',
-    'Source' => 'string',
-    'Binary' => 'comma_array',
-    'Architecture' => 'space_array',
-    'Version' => 'string',
-    'Maintainer' => 'string',
-    'Uploaders' => 'comma_array',
-    'Homepage' => 'string',
-    'Standards-Version' => 'string',
-    'Vcs-Browser' => 'string',
-#    'Vcs-Any' => 'string', # TODO: Handle these entries somewhere
-    'Build-Depends' => 'comma_array',
-    'Build-Depends-Indep' => 'comma_array',
-    'Checksums-Sha1' => 'multiline_array',
-    'Checksums-Sha256' => 'multiline_array',
-    'Files' => 'multiline_array',
 );
 
 ### File lexicals
@@ -236,312 +193,6 @@ sub Allow_Version {
     }
 
     return 1;
-}
-
-# Parse_Changes($changes_filename)
-#
-# Parses the changes file found at $changes_filename (which should be a
-# fully qualified path and filename), and returns a hashref pointing to a
-# Changes hash. Returns undef in the case of a failure (and sets $Error).
-
-# Changes Hash format:
-# {
-#   'Architecture' => \@Architectures
-#   'Binary' => \@Binaries
-#   'Changed-By' => Changed-By
-#   'Changes' => \@Changes lines
-#   'Closes' => \@Bugs
-#   'Description' => Description
-#   'Files' => \@\%File Hashes
-#   'Date' => RFC 822 timestamp
-#   'Distribution' => \@Distributions
-#   'Maintainer' => Maintainer
-#   'Source' => Source
-#   'Urgency' => Urgency
-#   'Version' => Version
-# }
-
-# File Hash format:
-# {
-#   'Filename' => Filename (leaf node only)
-#   'MD5Sum' => File MD5Sum
-#   'Priority' => Requested archive priority
-#   'Section' => Requested archive section
-#   'Size' => File size (in bytes)
-# }
-
-sub Parse_Changes {
-    use DebPool::GnuPG qw(:functions);
-    use DebPool::Logging qw(:functions :facility :level);
-
-    my($file) = @_;
-    my %result;
-
-    # Read in the entire Changes file, stripping GPG encoding if we find
-    # it. It should be small, this is fine.
-
-    my $changes_fh;
-    if (!open($changes_fh, '<', $file)) {
-        $Error = "Couldn't open changes file '$file': $!";
-        return;
-    }
-
-    my @changes = <$changes_fh>;
-    chomp(@changes);
-    @changes = Strip_GPG(@changes);
-    close($changes_fh);
-
-    # Go through each of the primary fields, stuffing it into the result
-    # hash if we find it.
-
-    foreach my $field (keys(%Changes_Fields)) {
-        my @lines = grep(/^${field}:\s+/, @changes);
-        if (-1 == $#lines) { # No match
-            next;
-        } elsif (0 < $#lines) { # Multiple matches
-            Log_Message("Duplicate entries for field '$field'",
-                        LOG_PARSE, LOG_WARNING);
-        }
-
-        $lines[0] =~ s/^${field}:\s+//;
-
-        if ('string' eq $Changes_Fields{$field}) {
-            $result{$field} = $lines[0];
-        } elsif ('space_array' eq $Changes_Fields{$field}) {
-            my @array = split(/\s+/, $lines[0]);
-            $result{$field} = \@array;
-        } elsif ('comma_array' eq $Changes_Fields{$field}) {
-            my @array = split(/\s+,\s+/, $lines[0]);
-            $result{$field} = \@array;
-        }
-    }
-
-    # Now that we should have it, check to make sure we have a Format
-    # header, and that it's format 1.7 or 1.8.
-
-    if (!defined($result{'Format'})) {
-        Log_Message("No Format header found in changes file '$file'",
-                    LOG_PARSE, LOG_ERROR);
-        $Error = 'No Format header found';
-        return;
-    } elsif (('1.7' ne $result{'Format'}) and ('1.8' ne $result{'Format'})) {
-        Log_Message("Unrecognized Format version '$result{'Format'}'",
-                    LOG_PARSE, LOG_ERROR);
-        $Error = 'Unrecognized Format version';
-        return;
-    }
-
-    # Special case: Description. One-line entry, immediately after a line
-    # with '^Description:'.
-
-    for my $count (0..$#changes) {
-        if ($changes[$count] =~ m/^Description:/) {
-            $result{'Description'} = $changes[$count+1];
-        }
-    }
-
-    # Special case: Changes. Multi-line entry, starts one line after
-    # '^Changes:', goes until we hit the Files header.
-
-    my($found) = 0;
-    my @changelines;
-
-    for my $count (0..$#changes) {
-        if ($found) {
-            if ($changes[$count] =~ m/^Files:/) {
-                $found = 0;
-            } else {
-                push(@changelines, $changes[$count]);
-            }
-        } else {
-            if ($changes[$count] =~ m/^Changes:/) {
-                $found = 1;
-            }
-        }
-    }
-
-    $result{'Changes'} = \@changelines;
-
-    # The Files section is a special case. It starts on the line after the
-    # 'Files:' header, and goes until we hit a blank line, or the end of
-    # the data.
-
-    my @files;
-
-    for my $count (0..$#changes) {
-        if ($found) {
-            if ($changes[$count] =~ m/^(\s*$|\S)/) { # End of Files entry
-                $found = 0; # No longer in Files
-            } elsif ($changes[$count] =~ m/\s*([[:xdigit:]]+)\s+(\d+)\s+(\S+)\s+(\S+)\s+(\S+)/) {
-                my ($md5, $size, $sec, $pri, $file) = ($1, $2, $3, $4, $5);
-                push(@files, {
-                    'Filename' => $file,
-                    'MD5Sum' => $md5,
-                    'Priority' => $pri,
-                    'Section' => $sec,
-                    'Size' => $size,
-                });
-            } else { # What's this doing here?
-                my $msg = 'Unrecognized data in Files section of changes file';
-                $msg .= " '$file'";
-                Log_Message($msg, LOG_PARSE, LOG_WARNING);
-            }
-        } else {
-            if ($changes[$count] =~ m/^Files:/) {
-                $found = 1;
-            }
-        }
-    }
-
-    $result{'Files'} = \@files;
-
-    return \%result;
-}
-
-# Parse_DSC($dsc_filename)
-#
-# Parses the dsc file found at $dsc_filename (which should be a fully
-# qualified path and filename), and returns a hashref pointing to a DSC
-# hash. Returns undef in the case of a failure (and sets $Error).
-
-# DSC Hash format:
-# {
-#   'Format' => Format
-#   'Source' => Source
-#   'Binary' => \@Binaries
-#   'Maintainer' => Maintainer
-#   'Architecture' => \@Architectures
-#   'Standards-Version' => Standards-Version
-#   'Build-Depends' => Build-Depends
-#   'Build-Depends-Indep' => Build-Depends-Indep
-#   'Files' => \@\%Filehash
-# }
-
-# File Hash format:
-# {
-#   'Filename' => Filename (leaf node only)
-#   'MD5Sum' => File MD5Sum
-#   'Size' => File size (in bytes)
-# }
-
-sub Parse_DSC {
-    use DebPool::GnuPG qw(:functions);
-    use DebPool::Logging qw(:functions :facility :level);
-
-    my($file) = @_;
-    my %result;
-
-    # Read in the entire DSC file, stripping GPG encoding if we find it. It
-    # should be small, this is fine.
-
-    my $dsc_fh;
-    if (!open($dsc_fh, '<', $file)) {
-        $Error = "Couldn't open dsc file '$file': $!";
-        return;
-    }
-
-    my @dsc = <$dsc_fh>;
-    chomp(@dsc);
-    @dsc = Strip_GPG(@dsc);
-    close($dsc_fh);
-
-    # Go through each of the primary fields, stuffing it into the result
-    # hash if we find it.
-
-    foreach my $field (keys(%DSC_Fields)) {
-        my @lines = grep(/^${field}:\s+/, @dsc);
-        if (-1 == $#lines) { # No match
-            next;
-        } elsif (0 < $#lines) { # Multiple matches
-            Log_Message("Duplicate entries for field '$field'",
-                        LOG_PARSE, LOG_WARNING);
-        }
-
-        $lines[0] =~ s/^${field}:\s+//;
-
-        if ('string' eq $DSC_Fields{$field}) {
-            $result{$field} = $lines[0];
-        } elsif ('space_array' eq $DSC_Fields{$field}) {
-            my @array = split(/\s+/, $lines[0]);
-            $result{$field} = \@array;
-        } elsif ('comma_array' eq $DSC_Fields{$field}) {
-            my @array = split(/\s+,\s+/, $lines[0]);
-            $result{$field} = \@array;
-        }
-    }
-
-    # Now that we should have it, check to make sure we have a Format
-    # header, and that it's format 1.0 (the only thing we grok).
-
-    if (!defined($result{'Format'})) {
-        Log_Message("No Format header found in dsc file '$file'",
-                    LOG_PARSE, LOG_ERROR);
-        $Error = 'No Format header found';
-        return;
-    } elsif ('1.0' ne $result{'Format'}) {
-        Log_Message("Unrecognized Format version '$result{'Format'}'",
-                    LOG_PARSE, LOG_ERROR);
-        $Error = 'Unrecognized Format version';
-        return;
-    }
-
-    # The Files section is a special case. It starts on the line after the
-    # 'Files:' header, and goes until we hit a blank line, or the end of
-    # the data.
-
-    # In fact, it's even more special than that; it includes, first, an entry
-    # for the DSC file itself...
-
-    my $count;
-    my $found = 0;
-    my @files;
-
-    my @temp = split(/\//, $file);
-    my $dsc_leaf = pop(@temp);
-
-    my $cmd_result = `/usr/bin/md5sum $file`;
-    $cmd_result =~ m/^([[:xdigit:]]+)\s+/;
-    my $dsc_md5 = $1;
-
-    my @stat = stat($file);
-    if (!@stat) {
-        $Error = "Couldn't stat DSC file '$file'";
-        return;
-    }
-    my $dsc_size = $stat[7];
-
-    push(@files, {
-        'Filename' => $dsc_leaf,
-        'MD5Sum' => $dsc_md5,
-        'Size' => $dsc_size,
-    });
-
-    for my $count (0..$#dsc) {
-        if ($found) {
-            if ($dsc[$count] =~ m/^(\s*$|\S)/) { # End of Files entry
-                $found = 0; # No longer in Files
-            } elsif ($dsc[$count] =~ m/\s*([[:xdigit:]]+)\s+(\d+)\s+(\S+)/) {
-                my($md5, $size, $file) = ($1, $2, $3);
-                push(@files, {
-                    'Filename' => $file,
-                    'MD5Sum' => $md5,
-                    'Size' => $size,
-                });
-            } else { # What's this doing here?
-                my $msg = 'Unrecognized data in Files section of dsc file';
-                $msg .= " '$file'";
-                Log_Message($msg, LOG_PARSE, LOG_WARNING);
-            }
-        } else {
-            if ($dsc[$count] =~ m/^Files:/) {
-                $found = 1;
-            }
-        }
-    }
-
-    $result{'Files'} = \@files;
-
-    return \%result;
 }
 
 # Generate_List($distribution, $section, $arch)
@@ -658,12 +309,11 @@ sub Generate_List {
     return $tmpfile_name;
 }
 
-# Install_Package($changes, $Changes_hashref, $DSC, $DSC_hashref, \@distributions)
+# Install_Package($changes, $changes_data, $DSC, $DSC_hashref, \@distributions)
 #
-# Install all of the package files for $Changes_hashref (which should
-# be a Parse_Changes result hash) into the pool directory, and install
-# the file in $changes to the installed directory. Also generates (and
-# installes) .package and .source meta-data files. It also updates the
+# Install all of the package files for $changes_data into the pool directory,
+# and install the file in $changes to the installed directory. Also generates
+# (and installs) .package and .source meta-data files. It also updates the
 # Version database for the listed distributions. Returns 1 if successful, 0
 # if not (and sets $Error).
 
@@ -673,13 +323,13 @@ sub Install_Package {
     use DebPool::DB qw(:functions :vars);
     use DebPool::Util qw(:functions);
 
-    my($changes, $chg_hashref, $dsc, $dsc_hashref, $distributions) = @_;
+    my($changes, %changes_data, $dsc, %dsc_data, $distributions) = @_;
 
     my $incoming_dir = $Options{'incoming_dir'};
     my $installed_dir = $Options{'installed_dir'};
     my $pool_dir = $Options{'pool_dir'};
 
-    my $pkg_name = $chg_hashref->{'Source'};
+    my $pkg_name = $changes_data{'Source'};
 
     # In case a valid binNMU is detected, Source will be written as
     # <package> (<original_version>). We must strip the extra version from the
@@ -688,9 +338,9 @@ sub Install_Package {
     ($pkg_name, $source_version) = split(/ /, $pkg_name);
     $source_version =~ s/^\(|\)$//g if defined $source_version;
 
-    my $pkg_ver = $chg_hashref->{'Version'};
+    my $pkg_ver = $changes_data{'Version'};
 
-    my $guess_section = Guess_Section($chg_hashref);
+    my $guess_section = Guess_Section(%changes_data);
     my $pkg_pool_subdir = join('/',
         ($pool_dir, PoolDir($pkg_name, $guess_section)));
     my $pkg_dir = join('/', ($pkg_pool_subdir, $pkg_name));
@@ -707,8 +357,7 @@ sub Install_Package {
     # Walk the File Hash, trying to install each listed file into the
     # pool directory.
 
-    foreach my $filehash (@{$chg_hashref->{'Files'}}) {
-        my $file = $filehash->{'Filename'};
+    foreach my $file (keys %{$changes_data{'Files'}}) {
         if (!Move_File("${incoming_dir}/${file}", "${pkg_dir}/${file}",
                 $Options{'pool_file_mode'})) {
             $Error = "Failed to move '${incoming_dir}/${file}' ";
@@ -719,12 +368,12 @@ sub Install_Package {
 
     # Generate and install .package and .source metadata files.
 
-    my @pkg_archs = @{$chg_hashref->{'Architecture'}};
+    my @pkg_archs = @{$changes_data{'Architecture'}};
     @pkg_archs = grep(!/source/, @pkg_archs); # Source is on it's own.
 
     my $target;
     foreach my $pkg_arch (@pkg_archs) {
-        my $pkg_file = Generate_Package($chg_hashref, $pkg_arch);
+        my $pkg_file = Generate_Package(%changes_data, $pkg_arch);
 
         if (!defined($pkg_file)) {
             $Error = "Failed to generate .package file: $Error";
@@ -740,8 +389,8 @@ sub Install_Package {
         }
     }
 
-    if (defined($dsc) && defined($dsc_hashref)) {
-        my $src_file = Generate_Source($dsc, $dsc_hashref, $chg_hashref);
+    if ($dsc && %dsc_data) {
+        my $src_file = Generate_Source($dsc, %dsc_data, %changes_data);
 
         if (!defined($src_file)) {
             $Error = "Failed to generate .source file: $Error";
@@ -773,14 +422,14 @@ sub Install_Package {
     # This whole block is just to calculate the component. What a stupid
     # setup - it should be in the changes file. Oh well.
 
-    my @filearray = @{$chg_hashref->{'Files'}};
+    my @filearray = (keys %{$changes_data{'Files'}});
     my $fileref = $filearray[0];
-    my $section = $fileref->{'Section'};
+    my $section = $changes_data{'Files'}{$fileref}[2];
     my $component = Strip_Subsection($section);
 
     foreach my $distribution (@{$distributions}) {
         Set_Versions($distribution, $pkg_name, $pkg_ver,
-            $chg_hashref->{'Files'});
+            $changes_data{'Files'});
         $ComponentDB{$distribution}->{$pkg_name} = $component;
     }
     if ( $section eq 'debian-installer' ) {
@@ -790,9 +439,9 @@ sub Install_Package {
     return 1;
 }
 
-# Reject_Package($changes, $chg_hashref)
+# Reject_Package($changes, $changes_data)
 #
-# Move all of the package files for $chg_hashref (which should be a
+# Move all of the package files for $changes_data (which should be a
 # Parse_Changes result hash) into the rejected directory, as well as the
 # file in $changes. Returns 1 if successful, 0 if not (and sets $Error).
 
@@ -801,7 +450,7 @@ sub Reject_Package {
     use DebPool::DB qw(:functions);
     use DebPool::Util qw(:functions);
 
-    my($changes, $chg_hashref) = @_;
+    my($changes, %changes_data) = @_;
 
     my $incoming_dir = $Options{'incoming_dir'};
     my $reject_dir = $Options{'reject_dir'};
@@ -809,8 +458,7 @@ sub Reject_Package {
 
     # Walk the File Hash, moving each file to the rejected directory.
 
-    foreach my $filehash (@{$chg_hashref->{'Files'}}) {
-        my $file = $filehash->{'Filename'};
+    foreach my $file (keys %{$changes_data{'Files'}}) {
         if (!Move_File("$incoming_dir/$file", "$reject_dir/$file",
                 $reject_file_mode)) {
             $Error = "Failed to move '$incoming_dir/$file' ";
@@ -871,7 +519,7 @@ sub Verify_MD5 {
     return 1;
 }
 
-# Audit_Package($package, $chg_hashref)
+# Audit_Package($package, $changes_data)
 #
 # Delete a package and changes files for the named (source) package which
 # are not referenced by any version currently found in the various release
@@ -883,20 +531,20 @@ sub Audit_Package {
     use DebPool::Dirs qw(:functions);
     use DebPool::Logging qw(:functions :facility :level);
 
-    my($package, $changefile, $changes_hashref) = @_;
+    my($package, $changefile, %changes_data) = @_;
 
     # Checking for version of package being installed
-    my $changes_version = $changes_hashref->{'Version'};
+    my $changes_version = $changes_data{'Version'};
 
     my $installed_dir = $Options{'installed_dir'};
     my $pool_dir = $Options{'pool_dir'};
 
-    my $section = Guess_Section($changes_hashref);
+    my $section = Guess_Section(%changes_data);
     my $package_dir = join('/',
         ($pool_dir, PoolDir($package, $section), $package));
 
     my @changes = grep(/${package}_/, Scan_Changes($installed_dir));
-    my @changes_arch = @{$changes_hashref->{'Architecture'}};
+    my @changes_arch = @{$changes_data{'Architecture'}};
 
     my $pool_scan = Scan_All($package_dir);
     if (!defined($pool_scan)) {
@@ -1027,7 +675,7 @@ sub Audit_Package {
     return $unlinked;
 }
 
-# Generate_Package($chg_hashref)
+# Generate_Package($changes_data)
 #
 # Generates a .package metadata file (Packages entries for each binary
 # package) in the tempfile area, and returns the filename. Returns undef
@@ -1038,8 +686,8 @@ sub Generate_Package {
     use DebPool::Dirs qw(:functions);
     use DebPool::Logging qw(:functions :facility :level);
 
-    my($changes_data, $arch) = @_;
-    my $source = $changes_data->{'Source'};
+    my(%changes_data, $arch) = @_;
+    my $source = $changes_data{'Source'};
 
     # In case a valid binNMU is detected, Source will be written as
     # <package> (<original_version>). We must strip the extra version from the
@@ -1048,14 +696,14 @@ sub Generate_Package {
     ($source, $source_version) = split(/ /, $source);
     $source_version =~ s/^\(|\)$//g if defined $source_version;
 
-    my @files = @{$changes_data->{'Files'}};
+    my @files = (keys %{$changes_data{'Files'}});
     my $pool_base = PoolBasePath();
 
     # Grab a temporary file.
 
     my($tmpfile_handle, $tmpfile_name) = tempfile();
 
-    my @packages = @{$changes_data->{'Binary'}};
+    my @packages = @{$changes_data{'Binary'}};
 
     my $package;
 
@@ -1068,7 +716,7 @@ sub Generate_Package {
         # without the epoch" -- it is more or less arbitrary, as long
         # as it is a well-formed version number).
         my $filepat = qr/^\Q${package}_\E.*\Q_${arch}.\Eu?deb/;
-        my $section = Guess_Section($changes_data);
+        my $section = Guess_Section(%changes_data);
         my $pool = join('/', (PoolDir($source, $section), $source));
 
         my $marker = -1;
@@ -1076,7 +724,7 @@ sub Generate_Package {
         # for later use.
 
         for my $count (0..$#files) {
-            if ($files[$count]->{'Filename'} =~ m/^$filepat$/) {
+            if ($files[$count] =~ m/^$filepat$/) {
                 $marker = $count;
             }
         }
@@ -1091,7 +739,7 @@ sub Generate_Package {
 
         # Run Dpkg_Info to grab the dpkg --info data on the package.
 
-        my $file = $files[$marker]->{'Filename'};
+        my $file = $files[$marker];
         my $info = Dpkg_Info("$Options{'pool_dir'}/$pool/$file");
 
         # Dump all of our data into the metadata tempfile.
@@ -1112,14 +760,14 @@ sub Generate_Package {
 
         print $tmpfile_handle "Installed-Size: $info->{'Installed-Size'}\n";
 
-        print $tmpfile_handle "Maintainer: $changes_data->{'Maintainer'}\n";
+        print $tmpfile_handle "Maintainer: $changes_data{'Maintainer'}\n";
         print $tmpfile_handle "Architecture: $arch\n";
         if ($source_version) {
             print $tmpfile_handle "Source: $source" . "_($source_version)\n";
         } else {
             print $tmpfile_handle "Source: $source\n";
         }
-        print $tmpfile_handle "Version: $changes_data->{'Version'}\n";
+        print $tmpfile_handle "Version: $changes_data{'Version'}\n";
 
         # All of the inter-package relationships go together, and any
         # one of them can potentially be empty (and omitted).
@@ -1135,8 +783,10 @@ sub Generate_Package {
 
         print $tmpfile_handle "Filename: $pool_base/$pool/$file\n";
 
-        print $tmpfile_handle "Size: $files[$marker]->{'Size'}\n";
-        print $tmpfile_handle "MD5sum: $files[$marker]->{'MD5Sum'}\n";
+        print $tmpfile_handle "Size: " .
+            $changes_data{'Files'}{$files[$marker]}[1] . "\n";
+        print $tmpfile_handle "MD5sum: " .
+            $changes_data{'Files'}{$files[$marker]}[0] . "\n";
 
         print $tmpfile_handle "Description: $info->{'Description'}";
 
@@ -1149,7 +799,7 @@ sub Generate_Package {
     return $tmpfile_name;
 }
 
-# Generate_Source($dsc, $dsc_hashref, $changes_hashref)
+# Generate_Source($dsc, $dsc_data, $changes_data)
 #
 # Generates a .source metadata file (Sources entries for the source
 # package) in the tempfile area, and returns the filename. Returns undef
@@ -1159,18 +809,18 @@ sub Generate_Source {
     use DebPool::Dirs qw(:functions);
     use DebPool::Logging qw(:functions :facility :level);
 
-    my($dsc, $dsc_data, $changes_data) = @_;
-    my $source = $dsc_data->{'Source'};
-    my @files = @{$dsc_data->{'Files'}};
+    my($dsc, %dsc_data, %changes_data) = @_;
+    my $source = $dsc_data{'Source'};
+    my @files = (keys %{$dsc_data{'Files'}});
 
     # Figure out the priority and section, using the DSC filename and
     # the Changes file data.
 
     my ($section, $priority);
-    foreach my $filehr (@{$changes_data->{'Files'}}) {
-        if ($filehr->{'Filename'} eq $dsc) {
-            $section = $filehr->{'Section'};
-            $priority = $filehr->{'Priority'};
+    foreach my $filehr (keys %{$changes_data{'Files'}}) {
+        if ($filehr eq $dsc) {
+            $section = $changes_data{'Files'}{$filehr}[2];
+            $priority = $changes_data{'Files'}{$filehr}[3];
         }
     }
 
@@ -1181,37 +831,37 @@ sub Generate_Source {
     # Dump out various metadata.
 
     print $tmpfile_handle "Package: $source\n";
-    print $tmpfile_handle "Binary: " . join(', ', @{$dsc_data->{'Binary'}}) . "\n";
-    print $tmpfile_handle "Version: $dsc_data->{'Version'}\n";
+    print $tmpfile_handle "Binary: " . join(', ', @{$dsc_data{'Binary'}}) . "\n";
+    print $tmpfile_handle "Version: $dsc_data{'Version'}\n";
     print $tmpfile_handle "Priority: $priority\n";
     print $tmpfile_handle "Section: $section\n";
-    print $tmpfile_handle "Maintainer: $dsc_data->{'Maintainer'}\n";
+    print $tmpfile_handle "Maintainer: $dsc_data{'Maintainer'}\n";
 
-    if (defined($dsc_data->{'Build-Depends'})) {
+    if (defined($dsc_data{'Build-Depends'})) {
         print $tmpfile_handle 'Build-Depends: ';
-        print $tmpfile_handle join(', ', @{$dsc_data->{'Build-Depends'}}) . "\n";
+        print $tmpfile_handle join(', ', @{$dsc_data{'Build-Depends'}}) . "\n";
     }
 
-    if (defined($dsc_data->{'Build-Depends-Indep'})) {
+    if (defined($dsc_data{'Build-Depends-Indep'})) {
         print $tmpfile_handle 'Build-Depends-Indep: ';
-        print $tmpfile_handle join(', ', @{$dsc_data->{'Build-Depends-Indep'}}) . "\n";
+        print $tmpfile_handle join(', ', @{$dsc_data{'Build-Depends-Indep'}}) . "\n";
     }
 
     print $tmpfile_handle 'Architecture: ';
-    print $tmpfile_handle join(' ', @{$dsc_data->{'Architecture'}}) . "\n";
+    print $tmpfile_handle join(' ', @{$dsc_data{'Architecture'}}) . "\n";
 
-    print $tmpfile_handle "Standards-Version: $dsc_data->{'Standards-Version'}\n"
-    if  exists $dsc_data->{'Standards-Version'};
-    print $tmpfile_handle "Format: $dsc_data->{'Format'}\n";
+    print $tmpfile_handle "Standards-Version: $dsc_data{'Standards-Version'}\n"
+    if  exists $dsc_data{'Standards-Version'};
+    print $tmpfile_handle "Format: $dsc_data{'Format'}\n";
     print $tmpfile_handle "Directory: " .  join('/',
         (PoolBasePath(), PoolDir($source, $section), $source)) . "\n";
 
     print $tmpfile_handle "Files:\n";
 
     foreach my $fileref (@files) {
-        print $tmpfile_handle " $fileref->{'MD5Sum'}";
-        print $tmpfile_handle " $fileref->{'Size'}";
-        print $tmpfile_handle " $fileref->{'Filename'}\n";
+        print $tmpfile_handle " " . $dsc_data{'Files'}{$fileref}[0];
+        print $tmpfile_handle " " . $dsc_data{'Files'}{$fileref}[1];
+        print $tmpfile_handle " $fileref\n";
     }
 
     print $tmpfile_handle "\n";
@@ -1299,7 +949,7 @@ sub Install_List {
     return 1;
 }
 
-# Guess_Section($changes_hashref)
+# Guess_Section($changes_data)
 #
 # Attempt to guess the freeness section of a package based on the data
 # for the first file listed in the changes.
@@ -1310,10 +960,10 @@ sub Guess_Section {
     # section, which is based solely on freeness-sections (main, contrib,
     # non-free).
 
-    my($changes_hashref) = @_;
+    my(%changes_data) = @_;
 
-    my @changes_files = @{$changes_hashref->{'Files'}};
-    return $changes_files[0]->{'Section'};
+    my @changes_files = (keys %{$changes_data{'Files'}});
+    return $changes_data{'Files'}{$changes_files[0]}[2];
 }
 
 # Strip_Epoch($version)
