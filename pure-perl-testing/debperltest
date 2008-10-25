@@ -4,8 +4,6 @@ use strict;
 use warnings;
 
 use Getopt::Long;
-use Archive::Ar;
-use Archive::Tar;
 
 my ($previous, $next, $file);
 GetOptions (
@@ -25,7 +23,7 @@ if (($previous) and ($next)) {
 
 # Method used to compare two revisions. This method will be implemented for
 # the Allow_Version() method in Packages.pm in the future.
-sub compare_versions {
+sub Compare_Versions {
     my ($prevrev, $nextrev) = @_;
     # Some variables that will carry us through this method
     my $count = 0;
@@ -70,13 +68,13 @@ sub compare_versions {
     print "epoch part\n";
     while (($count < $prevsize) or ($count < $nextsize)) {
         if ($count >= $prevsize) {
-            $subreturn = compare_char("", $nextarray[$count]);
+            $subreturn = Compare_Char("", $nextarray[$count]);
             print "NULL .. $nextarray[$count] .. $subreturn\n";
         } elsif ($count >= $nextsize) {
-            $subreturn = compare_char($prevarray[$count], "");
+            $subreturn = Compare_Char($prevarray[$count], "");
             print "$prevarray[$count] .. NULL .. $subreturn\n";
         } else {
-            $subreturn = compare_char($prevarray[$count], $nextarray[$count]);
+            $subreturn = Compare_Char($prevarray[$count], $nextarray[$count]);
             print "$prevarray[$count] .. $nextarray[$count] .. $subreturn\n";
         }
         $count++;
@@ -93,13 +91,13 @@ sub compare_versions {
     print "upstream part\n";
     while (($count < $prevsize) or ($count < $nextsize)) {
         if ($count >= $prevsize) {
-            $subreturn = compare_char("", $nextarray[$count]);
+            $subreturn = Compare_Char("", $nextarray[$count]);
             print "NULL .. $nextarray[$count] .. $subreturn\n";
         } elsif ($count >= $nextsize) {
-            $subreturn = compare_char($prevarray[$count], "");
+            $subreturn = Compare_Char($prevarray[$count], "");
             print "$prevarray[$count] .. NULL .. $subreturn\n";
         } else {
-            $subreturn = compare_char($prevarray[$count], $nextarray[$count]);
+            $subreturn = Compare_Char($prevarray[$count], $nextarray[$count]);
             print "$prevarray[$count] .. $nextarray[$count] .. $subreturn\n";
         }
         $count++;
@@ -124,13 +122,13 @@ sub compare_versions {
     if ((@prevarray > 1) or (@nextarray > 1)) {
         while (($count < $prevsize) or ($count < $nextsize)) {
             if ($count >= $prevsize) {
-                $subreturn = compare_char("", $nextarray[$count]);
+                $subreturn = Compare_Char("", $nextarray[$count]);
                 print "NULL .. $nextarray[$count] .. $subreturn\n";
             } elsif ($count >= $nextsize) {
-                $subreturn = compare_char($prevarray[$count], "");
+                $subreturn = Compare_Char($prevarray[$count], "");
                 print "$prevarray[$count] .. NULL .. $subreturn\n";
             } else {
-                $subreturn = compare_char($prevarray[$count], $nextarray[$count]);
+                $subreturn = Compare_Char($prevarray[$count], $nextarray[$count]);
                 print "$prevarray[$count] .. $nextarray[$count] .. $subreturn\n";
             }
             $count++;
@@ -147,7 +145,7 @@ sub compare_versions {
 # Compares two characters according to Debian policy. If the previous character
 # is greater than the next character, 1 is returned. If they are equal, 0 is
 # returned. Else, -1 is returned.
-sub compare_char {
+sub Compare_Char {
     my ($prevchar, $nextchar) = @_;
     my $prevvalue = ord($prevchar);
     my $nextvalue = ord($nextchar);
@@ -174,28 +172,75 @@ sub compare_char {
 
 # Method that mimics the behavior of 'dpkg --info <deb_file>'. This is the pure
 # perl method of performing said operation.
-sub dpkg_info {
+sub Dpkg_Info {
     my ($file) = @_;
 
-    my @output;
+    use Archive::Ar; # For extracting ar files
+    use File::Temp qw(tempfile tempdir);
 
+    # First read the contents of the deb file.
     my $ar = Archive::Ar->new($file);
     my $files = $ar->list_files(); #list_files() returns an array_ref
-    foreach my $tmp (@{$files}) {
-        print "$tmp\n";
-    }
     my $ar_debian_binary = $ar->get_content("debian-binary");
     my $ar_control = $ar->get_content("control.tar.gz");
     my $ar_data = $ar->get_content("data.tar.gz");
     my $package_version = $ar_debian_binary->{data};
     chomp $package_version;
-    push @output, " new debian package, version $package_version.";
-    push @output, " size $ar_data->{size} bytes: control archive= " .
-        "$ar_control->{size} bytes.";
 
-    foreach my $tmp (@output) {
-        print "$tmp\n";
+    # Now place the contents of the control file into a tempfile.
+    my ($control_tar_fh, $control_tar_file) = tempfile();
+    print $control_tar_fh $ar_control->{data};
+    binmode $control_tar_fh;
+
+    # Now extract the contents of that control file to a tempdir.
+    my $tmpdir = tempdir( CLEANUP => 1 );
+    system('tar', '-C', $tmpdir, '-xzf', $control_tar_file);
+    open(my $fh, '<', "$tmpdir/control");
+    my @control_file = <$fh>;
+    close $fh;
+
+    # Now check the contents of the extracted files
+    my @files;
+    opendir(my $dh, $tmpdir) or die "Couldn't open $tmpdir: $!";
+    foreach my $tmp (grep(!/^\.{1,2}$/, readdir($dh))) {
+        push @files, "$tmpdir/$tmp";
     }
+    closedir $dh;
+    @files = sort @files;
+    my @contents;
+    foreach my $tmp (@files) {
+        my $size = (stat($tmp))[7];
+        open(my $fh, '<', $tmp);
+        my @filedata = <$fh>;
+        close $fh;
+        my $lines = @filedata;
+        my $filename = $tmp;
+        $filename =~ s/^.*\/(.*)$/$1/;
+        my $exe_type = $filedata[0];
+        $exe_type =~ s/^([^\s]+).*$/$1/;
+        my $string = sprintf '%14s', "$size bytes,";
+        $string .= sprintf '%12s', "$lines lines";
+        if (-x $tmp) {
+            $string .= "   *  " . sprintf('%-21s', $filename) . $exe_type;
+        } else {
+            $string .= "      $filename\n";
+        }
+        push @contents, $string;
+    }
+
+    # Now place the contents of the data we collected into an array and then
+    # return a reference to the array.
+    my @output;
+    push @output, " new debian package, version $package_version.\n";
+    push @output, " size $ar_data->{size} bytes: control archive= " .
+        "$ar_control->{size} bytes.\n";
+    foreach my $tmp (@contents) {
+        push @output, " $tmp";
+    }
+    foreach my $tmp (@control_file) {
+        push @output, " $tmp";
+    }
+    return \@output;
 }
 
 if ($previous && $next) {
@@ -211,7 +256,7 @@ if ($previous && $next) {
     print "\n";
 
     print "Test with a pure Perl way\n";
-    my $comparereturn = compare_versions($previous, $next);
+    my $comparereturn = Compare_Versions($previous, $next);
     if ($comparereturn == -1) {
         print "Previous $previous is less than Next $next\n";
     } elsif ($comparereturn == 0) {
@@ -220,5 +265,8 @@ if ($previous && $next) {
         print "Previous $previous is greater than Next $next\n";
     }
 } elsif ($file) {
-    dpkg_info($file);
+    my $output = Dpkg_Info($file);
+    foreach my $tmp (@{$output}) {
+        print "$tmp";
+    }
 }
