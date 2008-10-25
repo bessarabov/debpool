@@ -4,14 +4,20 @@ use strict;
 use warnings;
 
 use Getopt::Long;
+use Archive::Ar;
+use Archive::Tar;
 
-my $previous;
-my $next;
-GetOptions ('p|previous=s' => \$previous,
-            'n|next=s' => \$next);
+my ($previous, $next, $file);
+GetOptions (
+    'p|previous=s' => \$previous,
+    'n|next=s' => \$next,
+    'f|file=s' => \$file,
+);
 
 if (($previous) and ($next)) {
     print "Previous set to $previous -- Next set to $next\n";
+} elsif ($file) {
+    print "File set to $file.\n";
 } else {
     print "Need to specify 'previous' and 'next' options.\n";
     exit 1;
@@ -166,23 +172,53 @@ sub compare_char {
     }
 }
 
-print "Test with dpkg\n";
-my $dpkg_bin = '/usr/bin/dpkg';
-if (system($dpkg_bin, '--compare-versions', $previous, 'lt', $next) == 0) {
-    print "Previous $previous is less than Next $next\n";
-} elsif (system($dpkg_bin, '--compare-versions', $previous, 'eq', $next) == 0) {
-    print "Previous $previous is equal Next $next\n";
-} elsif (system($dpkg_bin, '--compare-versions', $previous, 'gt', $next) == 0) {
-    print "Previous $previous is greater than Next $next\n";
-}
-print "\n";
+# Method that mimics the behavior of 'dpkg --info <deb_file>'. This is the pure
+# perl method of performing said operation.
+sub dpkg_info {
+    my ($file) = @_;
 
-print "Test with a pure Perl way\n";
-my $comparereturn = compare_versions($previous, $next);
-if ($comparereturn == -1) {
-    print "Previous $previous is less than Next $next\n";
-} elsif ($comparereturn == 0) {
-    print "Previous $previous is equal Next $next\n";
-} else {
-    print "Previous $previous is greater than Next $next\n";
+    my @output;
+
+    my $ar = Archive::Ar->new($file);
+    my $files = $ar->list_files(); #list_files() returns an array_ref
+    foreach my $tmp (@{$files}) {
+        print "$tmp\n";
+    }
+    my $ar_debian_binary = $ar->get_content("debian-binary");
+    my $ar_control = $ar->get_content("control.tar.gz");
+    my $ar_data = $ar->get_content("data.tar.gz");
+    my $package_version = $ar_debian_binary->{data};
+    chomp $package_version;
+    push @output, " new debian package, version $package_version.";
+    push @output, " size $ar_data->{size} bytes: control archive= " .
+        "$ar_control->{size} bytes.";
+
+    foreach my $tmp (@output) {
+        print "$tmp\n";
+    }
+}
+
+if ($previous && $next) {
+    print "Test with dpkg\n";
+    my $dpkg_bin = '/usr/bin/dpkg';
+    if (system($dpkg_bin, '--compare-versions', $previous, 'lt', $next) == 0) {
+        print "Previous $previous is less than Next $next\n";
+    } elsif (system($dpkg_bin, '--compare-versions', $previous, 'eq', $next) == 0) {
+        print "Previous $previous is equal Next $next\n";
+    } elsif (system($dpkg_bin, '--compare-versions', $previous, 'gt', $next) == 0) {
+        print "Previous $previous is greater than Next $next\n";
+    }
+    print "\n";
+
+    print "Test with a pure Perl way\n";
+    my $comparereturn = compare_versions($previous, $next);
+    if ($comparereturn == -1) {
+        print "Previous $previous is less than Next $next\n";
+    } elsif ($comparereturn == 0) {
+        print "Previous $previous is equal Next $next\n";
+    } else {
+        print "Previous $previous is greater than Next $next\n";
+    }
+} elsif ($file) {
+    dpkg_info($file);
 }
