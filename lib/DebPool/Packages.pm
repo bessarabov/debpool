@@ -478,9 +478,7 @@ sub Reject_Package {
 # Verify_MD5($file, $md5)
 #
 # Verifies the MD5 checksum of $file against $md5. Returns 1 if it matches,
-# 0 if it doesn't, and undef (also setting $Error) if an error occurs. This
-# routine uses the dpkg md5sum utility, to avoid pulling in a dependancy on
-# Digest::MD5.
+# 0 if it doesn't, and undef (also setting $Error) if an error occurs.
 
 sub Verify_MD5 {
     use DebPool::Logging qw(:functions :facility :level);

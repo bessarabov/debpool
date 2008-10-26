@@ -8,6 +8,7 @@ lib/DebPool/Bzip2.pm
 lib/DebPool/Config.pm
 lib/DebPool/DB.pm
 lib/DebPool/Dirs.pm
+lib/DebPool/Dpkg.pm
 lib/DebPool/GnuPG.pm
 lib/DebPool/Gzip.pm
 lib/DebPool/Logging.pm

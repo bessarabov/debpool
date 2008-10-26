@@ -4,6 +4,9 @@ use strict;
 use warnings;
 
 use Getopt::Long;
+use File::Temp qw(tempfile tempdir); # For making tempfiles and tempdirs
+use Archive::Ar; # For extracting ar files (the format for .deb files)
+use Archive::Tar; # For extracting tar files
 
 my ($previous, $next, $file);
 GetOptions (
@@ -170,76 +173,53 @@ sub Compare_Char {
     }
 }
 
-# Method that mimics the behavior of 'dpkg --info <deb_file>'. This is the pure
-# perl method of performing said operation.
-sub Dpkg_Info {
-    my ($file) = @_;
+# Dpkg_Field($file, $fields)
+# Parameter data types (string, array_ref)
+#
+# Method that mimics the behavior of 'dpkg --field <deb_file> [fields]'. This is
+# the pure perl method of performing said operation.
+# Note that this is actually a dpkg-deb operation.
+sub Dpkg_Field {
+    my ($file, $fields) = @_;
 
-    use Archive::Ar; # For extracting ar files
-    use File::Temp qw(tempfile tempdir);
-
-    # First read the contents of the deb file.
+    # First get the contents of the control gzip tarball from the deb file.
     my $ar = Archive::Ar->new($file);
-    my $files = $ar->list_files(); #list_files() returns an array_ref
-    my $ar_debian_binary = $ar->get_content("debian-binary");
+    # get_content() returns a hash reference
     my $ar_control = $ar->get_content("control.tar.gz");
-    my $ar_data = $ar->get_content("data.tar.gz");
-    my $package_version = $ar_debian_binary->{data};
-    chomp $package_version;
 
-    # Now place the contents of the control file into a tempfile.
-    my ($control_tar_fh, $control_tar_file) = tempfile();
-    print $control_tar_fh $ar_control->{data};
-    binmode $control_tar_fh;
+    # Now write the control gzip tarball into a tempfile.
+    my ($control_tar_gz_fh, $control_tar_gz) = tempfile();
+    print $control_tar_gz_fh $ar_control->{data};
+    binmode $control_tar_gz_fh;
 
-    # Now extract the contents of that control file to a tempdir.
-    my $tmpdir = tempdir( CLEANUP => 1 );
-    system('tar', '-C', $tmpdir, '-xzf', $control_tar_file);
-    open(my $fh, '<', "$tmpdir/control");
-    my @control_file = <$fh>;
-    close $fh;
+    # Now extract and read the contents of the control file to an array.
+    my ($control_fh, $control_file) = tempfile();
+    my $control_tar_object = Archive::Tar->new($control_tar_gz,1);
+    $control_tar_object->extract_file('./control',$control_file);
+    my @control_file_data = <$control_fh>;
 
-    # Now check the contents of the extracted files
-    my @files;
-    opendir(my $dh, $tmpdir) or die "Couldn't open $tmpdir: $!";
-    foreach my $tmp (grep(!/^\.{1,2}$/, readdir($dh))) {
-        push @files, "$tmpdir/$tmp";
-    }
-    closedir $dh;
-    @files = sort @files;
-    my @contents;
-    foreach my $tmp (@files) {
-        my $size = (stat($tmp))[7];
-        open(my $fh, '<', $tmp);
-        my @filedata = <$fh>;
-        close $fh;
-        my $lines = @filedata;
-        my $filename = $tmp;
-        $filename =~ s/^.*\/(.*)$/$1/;
-        my $exe_type = $filedata[0];
-        $exe_type =~ s/^([^\s]+).*$/$1/;
-        my $string = sprintf '%14s', "$size bytes,";
-        $string .= sprintf '%12s', "$lines lines";
-        if (-x $tmp) {
-            $string .= "   *  " . sprintf('%-21s', $filename) . $exe_type;
-        } else {
-            $string .= "      $filename\n";
-        }
-        push @contents, $string;
-    }
-
-    # Now place the contents of the data we collected into an array and then
-    # return a reference to the array.
+    # Now place the contents of the control file into an array. If we passed any
+    # fields to grab, only include the data for those fields in the array.
     my @output;
-    push @output, " new debian package, version $package_version.\n";
-    push @output, " size $ar_data->{size} bytes: control archive= " .
-        "$ar_control->{size} bytes.\n";
-    foreach my $tmp (@contents) {
-        push @output, " $tmp";
+    my $pattern;
+    $pattern = "(" . join('|', @{$fields}) . ")" if ($fields);
+    my $newfield = 0; # use as boolean
+    foreach my $tmp (@control_file_data) {
+        if (!$pattern) {
+            push @output, $tmp;
+        } elsif ($tmp =~ /^$pattern:/) {
+            $newfield = 1;
+            push @output, $tmp;
+        } elsif ($newfield and $tmp =~ /^ /) {
+            push @output, $tmp;
+        } else {
+            $newfield = 0;
+        }
     }
-    foreach my $tmp (@control_file) {
-        push @output, " $tmp";
-    }
+
+    # Finally, strip the field name from the output array we only specified one
+    # field to grab data from. Then return the output as an array reference.
+    $output[0] =~ s/^$pattern: (.*)/$2/ if ($fields and @{$fields} eq 1);
     return \@output;
 }
 
@@ -265,7 +245,7 @@ if ($previous && $next) {
         print "Previous $previous is greater than Next $next\n";
     }
 } elsif ($file) {
-    my $output = Dpkg_Info($file);
+    my $output = Dpkg_Field($file, ['Description',]);
     foreach my $tmp (@{$output}) {
         print "$tmp";
     }
