@@ -88,7 +88,9 @@ our($Error);
 # Parameter data types (string, array_ref)
 #
 # Method that mimics the behavior of 'dpkg --field <deb_file> [fields]'. This is
-# the pure perl method of performing said operation.
+# the pure perl method of performing said operation. We return the contents of
+# the control file in an array reference.
+#
 # Note that this is actually a dpkg-deb operation.
 
 sub Dpkg_Field {
@@ -96,11 +98,7 @@ sub Dpkg_Field {
 
     # First get the contents of the control gzip tarball from the deb file.
     my $ar = Archive::Ar->new($file);
-    if (!$ar) {
-        my $msg = "Couldn't load deb file $file: $!";
-        Log_Message($msg, LOG_GENERAL, LOG_ERROR);
-        return;
-    }
+    # get_content() returns a hash reference
     my $ar_control = $ar->get_content("control.tar.gz");
 
     # Now write the control gzip tarball into a tempfile.
@@ -111,19 +109,16 @@ sub Dpkg_Field {
     # Now extract and read the contents of the control file to an array.
     my ($control_fh, $control_file) = tempfile();
     my $control_tar_object = Archive::Tar->new($control_tar_gz,1);
-    if (!$control_tar_object) {
-        my $msg = "Couldn't load control.tar.gz file from $file: $!";
-        Log_Message($msg, LOG_GENERAL, LOG_ERROR);
-        return;
-    }
     $control_tar_object->extract_file('./control',$control_file);
     my @control_file_data = <$control_fh>;
 
-    # Now place the contents of the control file into an array. If we passed any
-    # fields to grab, only include the data for those fields in the array.
+    # Just return our control file data if we didn't specify any fields
+    return \@control_file_data if (!$fields);
+
+    # If we did specify fields, include only those fields in the output. Also,
+    # if we specified only one field, strip the field name from the output.
     my @output;
-    my $pattern;
-    $pattern = "(" . join('|', @{$fields}) . ")" if ($fields);
+    my $pattern = "(" . join('|', @{$fields}) . ")";
     my $newfield = 0; # use as boolean
     foreach my $tmp (@control_file_data) {
         if (!$pattern) {
@@ -137,10 +132,7 @@ sub Dpkg_Field {
             $newfield = 0;
         }
     }
-
-    # Finally, strip the field name from the output array we only specified one
-    # field to grab data from. Then return the output as an array reference.
-    $output[0] =~ s/^$pattern: (.*)/$2/ if ($fields and @{$fields} eq 1);
+    $output[0] =~ s/^$pattern: (.*)/$2/ if (@{$fields} eq 1);
     return \@output;
 }
 
