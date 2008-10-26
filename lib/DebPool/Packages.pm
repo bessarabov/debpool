@@ -44,7 +44,7 @@ use strict;
 use warnings;
 
 use POSIX; # WEXITSTATUS
-use File::Temp qw(tempfile);
+use File::Temp qw(tempfile tempdir);
 
 ### Module setup
 
@@ -94,33 +94,6 @@ BEGIN {
 
 our $Error;
 
-# Fields (other than package relationships) from dpkg --info that we
-# actually care about in some fashion.
-
-my @Info_Fields = (
-#    'Package',
-    'Priority',
-    'Section',
-    'Installed-Size',
-#    'Maintainer',
-    'Architecture',
-#    'Version',
-    'Essential',
-);
-
-# Package relationship fieldnames.
-
-my @Relationship_Fields = (
-    'Pre-Depends',
-    'Depends',
-    'Provides',
-    'Conflicts',
-    'Recommends',
-    'Suggests',
-    'Enhances',
-    'Replaces',
-);
-
 ### File lexicals
 
 # None
@@ -143,6 +116,7 @@ sub Allow_Version {
     use DebPool::Config qw(:vars);
     use DebPool::DB qw(:functions);
     use DebPool::Logging qw(:functions :facility :level);
+    use DebPool::Dpkg qw(:functions);
 
     my($package, $version, $distribution, $arch) = @_;
     my $old_version = Get_Version($distribution, $package, 'meta');
@@ -179,12 +153,8 @@ sub Allow_Version {
         return 1;
     }
 
-    my $dpkg_bin = '/usr/bin/dpkg';
-    my @args = ('--compare-versions', $version, 'gt', $old_version);
-
-    my $sysret = WEXITSTATUS(system($dpkg_bin, @args));
-
-    if (0 != $sysret) { # DPKG says no go.
+    if (!Dpkg_Compare_Versions($version, 'gt', $old_version)) {
+        # DPKG says no go.
         my $msg = "Version comparison for '$package': proposed version for ";
         $msg .= "$distribution ($version) is not greater than current ";
         $msg .= "version ($old_version)";
@@ -387,7 +357,7 @@ sub Install_Package {
         }
     }
 
-    if ($dsc && %{$dsc_data}) {
+    if ($dsc and $dsc_data) {
         my $src_file = Generate_Source($dsc, $dsc_data, $changes_data);
 
         if (!defined($src_file)) {
@@ -683,6 +653,8 @@ sub Generate_Package {
     use DebPool::Config qw(:vars);
     use DebPool::Dirs qw(:functions);
     use DebPool::Logging qw(:functions :facility :level);
+    use DebPool::Dpkg qw(:functions);
+    use DebPool::Parser qw(:functions);
 
     my($changes_data, $arch) = @_;
     my $source = $changes_data->{'Source'};
@@ -729,10 +701,18 @@ sub Generate_Package {
 
         next if (-1 == $marker);
 
-        # Run Dpkg_Info to grab the dpkg --info data on the package.
+        # Run DpkgDeb_Control() to extract the control file from the deb
+        # archive. Then parse the control file.
 
         my $file = $files[$marker];
-        my $info = Dpkg_Info("$Options{'pool_dir'}/$pool/$file");
+        my $tmpdir = tempdir(CLEANUP => 1);
+        if (!DpkgDeb_Control("$Options{'pool_dir'}/$pool/$file", $tmpdir)) {
+            my $msg = "Could not extract control file from deb file ";
+            $msg .= "$Options{'pool_dir'}/$pool/$file";
+            Log_Message($msg, LOG_GENERAL, LOG_ERROR);
+            return;
+        }
+        my $info = Parse_File("$tmpdir/control");
 
         # Dump all of our data into the metadata tempfile.
 
@@ -755,7 +735,7 @@ sub Generate_Package {
         print $tmpfile_handle "Maintainer: $changes_data->{'Maintainer'}\n";
         print $tmpfile_handle "Architecture: $arch\n";
         if ($source_version) {
-            print $tmpfile_handle "Source: $source" . "_($source_version)\n";
+            print $tmpfile_handle "Source: $source ($source_version)\n";
         } else {
             print $tmpfile_handle "Source: $source\n";
         }
@@ -764,9 +744,12 @@ sub Generate_Package {
         # All of the inter-package relationships go together, and any
         # one of them can potentially be empty (and omitted).
 
+        my @Relationship_Fields = ('Pre-Depends', 'Depends', 'Provides',
+            'Conflicts', 'Recommends', 'Suggests', 'Enhances', 'Replaces',);
         foreach my $field (@Relationship_Fields) {
             if (defined($info->{$field})) {
-                print $tmpfile_handle "${field}: $info->{$field}\n";
+                print $tmpfile_handle "${field}: " .
+                    join(', ', @{$info->{$field}}) . "\n";
             }
         }
 
@@ -779,8 +762,19 @@ sub Generate_Package {
             $changes_data->{'Files'}{$files[$marker]}[1] . "\n";
         print $tmpfile_handle "MD5sum: " .
             $changes_data->{'Files'}{$files[$marker]}[0] . "\n";
+        print $tmpfile_handle "SHA1: " .
+            $changes_data->{'Checksums-Sha1'}{$files[$marker]}[0] . "\n";
+        print $tmpfile_handle "SHA256: " .
+            $changes_data->{'Checksums-Sha256'}{$files[$marker]}[0] . "\n";
 
-        print $tmpfile_handle "Description: $info->{'Description'}";
+        print $tmpfile_handle "Description: ";
+        foreach my $tmp (@{$info->{'Description'}}) {
+            print $tmpfile_handle "$tmp\n";
+        }
+
+        if (defined $info->{'Homepage'}) {
+            print $tmpfile_handle "Homepage: $info->{'Homepage'}\n";
+        }
 
         print $tmpfile_handle "\n";
     }
@@ -805,6 +799,10 @@ sub Generate_Source {
     my($dsc, $dsc_data, $changes_data) = @_;
     my $source = $dsc_data->{'Source'};
     my @files = (keys %{$dsc_data->{'Files'}});
+    my @checksums_sha1 = grep(!/\.dsc$/,
+        (keys %{$dsc_data->{'Checksums-Sha1'}}));
+    my @checksums_sha256 = grep(!/\.dsc$/,
+        (keys %{$dsc_data->{'Checksums-Sha256'}}));
 
     # Figure out the priority and section, using the DSC filename and
     # the Changes file data.
@@ -854,10 +852,44 @@ sub Generate_Source {
         (PoolBasePath(), PoolDir($source, $section), $source)) . "\n";
 
     print $tmpfile_handle "Files:\n";
-
     foreach my $fileref (@files) {
         print $tmpfile_handle " " . $dsc_data->{'Files'}{$fileref}[0];
         print $tmpfile_handle " " . $dsc_data->{'Files'}{$fileref}[1];
+        print $tmpfile_handle " $fileref\n";
+    }
+
+    if (defined $dsc_data->{'Uploaders'}) {
+        print $tmpfile_handle "Uploaders: ";
+        print $tmpfile_handle join(', ', @{$dsc_data->{'Uploaders'}}) . "\n";
+    }
+
+    if (defined $dsc_data->{'Dm-Upload-Allowed'}) {
+        print $tmpfile_handle "Dm-Upload-Allowed: " .
+            $dsc_data->{'Dm-Upload-Allowed'} . "\n";
+    }
+
+    if (defined $dsc_data->{'Homepage'}) {
+        print $tmpfile_handle "Homepage: $dsc_data->{'Homepage'}\n";
+    }
+
+    my @vcs = sort(grep(/^Vcs/, (keys %{$dsc_data})));
+    foreach my $tmp (@vcs) {
+        print $tmpfile_handle "$tmp: $dsc_data->{$tmp}\n";
+    }
+
+    print $tmpfile_handle "Checksums-Sha1: \n";
+    foreach my $fileref (@checksums_sha1) {
+        print $tmpfile_handle " " . $dsc_data->{'Checksums-Sha1'}{$fileref}[0];
+        print $tmpfile_handle " " . $dsc_data->{'Checksums-Sha1'}{$fileref}[1];
+        print $tmpfile_handle " $fileref\n";
+    }
+
+    print $tmpfile_handle "Checksums-Sha256: \n";
+    foreach my $fileref (@checksums_sha256) {
+        print $tmpfile_handle " " .
+            $dsc_data->{'Checksums-Sha256'}{$fileref}[0];
+        print $tmpfile_handle " " .
+            $dsc_data->{'Checksums-Sha256'}{$fileref}[1];
         print $tmpfile_handle " $fileref\n";
     }
 
@@ -867,46 +899,6 @@ sub Generate_Source {
 
     close($tmpfile_handle);
     return $tmpfile_name;
-}
-
-# Dpkg_Info($file)
-#
-# Runs dpkg --info on $file, and returns a hash of relevant information.
-#
-# Internal support function for Generate_Package.
-
-sub Dpkg_Info {
-    my($file) = @_;
-    my %result;
-
-    # Grab the info from dpkg --info.
-
-    my @info = `/usr/bin/dpkg --info $file`;
-    my $smashed = join('', @info);
-
-    # Look for each of these fields in the info. All are single line values,
-    # so the matching is fairly easy.
-
-    foreach my $field (@Info_Fields, @Relationship_Fields) {
-        if ($smashed =~ m/\n ${field}:\s+(\S.*)\n/) {
-            $result{$field} = $1;
-        }
-    }
-
-    # And, finally, grab the description.
-
-    my $found = 0;
-    foreach my $line (@info) {
-        if ($found) {
-            $line =~ s/^ //;
-            $result{'Description'} .= $line;
-        } elsif ($line =~ m/^ Description: (.+)/) {
-            $result{'Description'} = "$1\n";
-            $found = 1;
-        }
-    }
-
-    return \%result;
 }
 
 # Install_List($archive, $component, $architecture, $listfile, $zfiles)

@@ -32,7 +32,7 @@ require 5.006_000;
 use strict;
 use warnings;
 
-use File::Temp qw(tempfile); # For making tempfiles
+use File::Temp qw(tempfile tempdir); # For making tempfiles
 use Archive::Ar; # For extracting ar files (the format for .deb files)
 use Archive::Tar; # For extracting tar files
 
@@ -53,12 +53,14 @@ BEGIN {
     );
 
     @EXPORT_OK = qw(
-        &Dpkg_Field
-        &Compare_Version
+        &DpkgDeb_Control
+        &DpkgDeb_Field
+        &Dpkg_Compare_Version
     );
 
     %EXPORT_TAGS = (
-        'functions' => [qw(&Dpkg_Field &Compare_Version)],
+        'functions' => [qw(&DpkgDeb_Control &DpkgDeb_Field
+                        &Dpkg_Compare_Version)],
         'vars' => [qw()],
     );
 }
@@ -84,33 +86,78 @@ our($Error);
 
 ### Meaningful functions
 
-# Dpkg_Field($file, $fields)
-# Parameter data types (string, array_ref)
+# DpkgDeb_Control($file, $dir)
+# Parameter data types (string, string)
 #
-# Method that mimics the behavior of 'dpkg --field <deb_file> [fields]'. This is
-# the pure perl method of performing said operation. We return the contents of
-# the control file in an array reference.
-#
-# Note that this is actually a dpkg-deb operation.
+# Method that mimics 'dpkg-deb --control <deb_file> <directory>'.
+# This is the pure perl method of performing said operation. We return 1 on
+# success, 0 on failure.
 
-sub Dpkg_Field {
-    my ($file, $fields) = @_;
+sub DpkgDeb_Control {
+    my ($file, $dir) = @_;
+
+    # If $dir is not specified, we default to DEBIAN.
+    $dir = 'DEBIAN' if (!$dir);
+
+    # Make the directory if it doesn't exist. Print an error if we've failed.
+    if ((! -d $dir) and (! mkdir $dir,755)) {
+        Log_Message("Could not make directory $dir: $!",
+            LOG_GENERAL, LOG_ERROR);
+        return 0;
+    }
 
     # First get the contents of the control gzip tarball from the deb file.
     my $ar = Archive::Ar->new($file);
+    if (!$ar) {
+        Log_Message("Could not load deb file $file: $!",
+            LOG_GENERAL, LOG_ERROR);
+        return 0;
+    }
     # get_content() returns a hash reference
     my $ar_control = $ar->get_content("control.tar.gz");
 
     # Now write the control gzip tarball into a tempfile.
-    my ($control_tar_gz_fh, $control_tar_gz) = tempfile();
+    my ($control_tar_gz_fh, $control_tar_gz) = tempfile(UNLINK => 1);
     print $control_tar_gz_fh $ar_control->{data};
     binmode $control_tar_gz_fh;
 
     # Now extract and read the contents of the control file to an array.
-    my ($control_fh, $control_file) = tempfile();
+    my ($control_fh, $control_file) = tempfile(UNLINK => 1);
     my $control_tar_object = Archive::Tar->new($control_tar_gz,1);
-    $control_tar_object->extract_file('./control',$control_file);
+    if (!$control_tar_object) {
+        Log_Message("Could not load control file from deb file $file: $!",
+            LOG_GENERAL, LOG_ERROR);
+        return 0;
+    }
+    $control_tar_object->extract_file('./control',"$dir/control");
+    return 1;
+}
+
+# DpkgDeb_Field($file, $fields)
+# Parameter data types (string, array_ref)
+#
+# Method that mimics the behavior of 'dpkg-deb --field <deb_file> [fields]'.
+# This is the pure perl method of performing said operation. We return the
+# contents of the control file in an array reference.
+
+sub DpkgDeb_Field {
+    my ($file, $fields) = @_;
+
+    # Take advantage of DpkgDeb_Control() to extract the control file.
+    my $tmpdir = tempdir(CLEANUP => 1);
+    if (!DpkgDeb_Control($file, $tmpdir)) {
+        Log_Message("Could not load deb file $file: $!",
+            LOG_GENERAL, LOG_ERROR);
+    }
+
+    # Now open the file and place the contents of the control file in an array.
+    my $control_fh;
+    if (!open($control_fh, '<', "$tmpdir/control")) {
+        print "Could not open $tmpdir/control: $!";
+        return;
+    }
     my @control_file_data = <$control_fh>;
+    close $control_fh;
 
     # Just return our control file data if we didn't specify any fields
     return \@control_file_data if (!$fields);
@@ -136,7 +183,7 @@ sub Dpkg_Field {
     return \@output;
 }
 
-# Compare_Version($version1, $operator, $version2)
+# Dpkg_Compare_Version($version1, $operator, $version2)
 # Paramater data types (string, string, string)
 #
 # Method that compares two version numbers and returns either 1 or 0 (true or
@@ -144,7 +191,7 @@ sub Dpkg_Field {
 #
 # TODO: For now, we just use dpkg. We'll make this a pure Perl subroutine later.
 
-sub Compare_Version {
+sub Dpkg_Compare_Version {
     my ($version1, $operator, $version2) = @_;
 
     my $dpkg_bin = '/usr/bin/dpkg';

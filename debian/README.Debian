@@ -23,3 +23,9 @@ Dependencies:
   just needs libc to run and gcc to build (aside from texinfo for documentation)
   therefore in this case, libcompress-bzip2-perl was allowed as a dependency for
   debpool.
+
+Dpkg.pm
+
+* Dpkg.pm will provide the basic dpkg operations that we use. It will be
+  licensed under GPL in hopes that it can be used and improved alongside the
+  regular dpkg programs and scripts.

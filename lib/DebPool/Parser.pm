@@ -84,7 +84,7 @@ my %Field_Types = (
     'Format' => 'string', # both
     'Date' => 'string', # changes
     'Source' => 'string', # both
-    'Binary' => 'space_array', # both
+    'Binary' => 'space_array', # both (comma_array in dsc file)
     'Architecture' => 'space_array', # both
     'Version' => 'string', # both
     'Distribution' => 'space_array', # both
@@ -106,6 +106,21 @@ my %Field_Types = (
     'Dm-Upload-Allowed' => 'string', #dsc
 #    'X-Any-Fields' => 'multiline_array', # both
     'Source-Version' => 'string', # used when binNMU is detected
+
+    # The rest of these fields are found in the control file of a package.
+    'Package' => 'string',
+    'Priority' => 'string',
+    'Section' => 'string',
+    'Installed-Size' => 'string',
+    'Essential' => 'string',
+    'Pre-Depends' => 'comma_array',
+    'Depends' => 'comma_array',
+    'Provides' => 'comma_array',
+    'Conflicts' => 'comma_array',
+    'Recommends' => 'comma_array',
+    'Suggests' => 'comma_array',
+    'Enhances' => 'comma_array',
+    'Replaces' => 'comma_array',
 );
 
 ### File lexicals
@@ -128,13 +143,13 @@ sub Parse_File {
     my ($file) = @_;
 
     use DebPool::GnuPG qw(:functions); # To strip GPG encoding
-
+    use DebPool::Logging qw(:functions :facility :level);
 
     # Read in the entire file, stripping GPG encoding if we find
     # it. It should be small, this is fine.
     my $fh;
     if (!open($fh, '<', $file)) {
-        print "Couldn't open file '$file': $!";
+        Log_Message("Couldn't open file '$file': $!", LOG_GENERAL, LOG_ERROR);
         return;
     }
     my @data = <$fh>;
@@ -161,8 +176,8 @@ sub Parse_File {
             if ($2) { # Only add entries if there's something to add
                 push @values, $2;
             }
-        } else { #Still in the same field, we omit the first white space
-            push @values, (substr $line, 1);
+        } else { #Still in the same field
+            push @values, $line;
         }
     }
     # Once we're done with the for loop, we still have to process the last
@@ -192,14 +207,20 @@ sub Parse_File {
 sub Process_Type {
     my ($field, $file, $values) = @_;
 
-    # Change the Files field type to appropriate type dependending on file
-    # being parsed.
-    my $fieldtype = $Field_Types{$field};
+    # Change the field type of certain fields to appropriate type dependending
+    # on the file being parsed.
     if ($field eq 'Files') {
         if ($file =~ m/^.*\Q.changes\E$/) {
             $Field_Types{$field} = 'file_entries';
         } else {
             $Field_Types{$field} = 'checksums';
+        }
+    }
+    if ($field eq 'Binary') {
+        if ($file =~ m/^.*\Q.dsc\E$/) {
+            $Field_Types{$field} = 'comma_array';
+        } else {
+            $Field_Types{$field} = 'space_array';
         }
     }
 
@@ -231,7 +252,7 @@ sub Process_Type {
         # second element being the size.
         my %data;
         foreach my $value (@{$values}) {
-            my ($checksum, $size, $file) = split /\s+/, $value;
+            my (undef, $checksum, $size, $file) = split /\s+/, $value;
             $data{$file} = [ $checksum, $size ];
         }
         return \%data;
@@ -242,7 +263,7 @@ sub Process_Type {
         # third is the section and the fourth is the priority.
         my %data;
         foreach my $value (@{$values}) {
-            my ($checksum, $size, $section, $priority, $file) =
+            my (undef, $checksum, $size, $section, $priority, $file) =
                 split /\s+/, $value;
             $data{$file} = [ $checksum, $size, $section, $priority ];
         }
