@@ -189,8 +189,10 @@ sub Parse_File {
     # In case a valid binNMU is detected, Source will be written as
     # <package> (<original_version>). We must strip the extra version from the
     # string.
-    ($fields{'Source'}, $fields{'Source-Version'}) =
-        split(/ /, $fields{'Source'});
+    if (defined $fields{'Source'}) {
+        ($fields{'Source'}, $fields{'Source-Version'}) =
+            split(/ /, $fields{'Source'});
+    }
     if (defined $fields{'Source-Version'}) {
         $fields{'Source-Version'} =~ s/^\(|\)$//g;
     }

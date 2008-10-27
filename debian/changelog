@@ -6,8 +6,13 @@ debpool (0.5.0) experimental; urgency=low
   * Use DebPool::Logging for error messages in Parser.pm.
   * Use Parser.pm for parsing the control file information.
   * Add in SHA1 and SHA256 information in Packages and Sources file.
+  * Only go through u?deb packages in Generate_Package().
+  * Moved all imported DebPool modules used in Packages.pm to one location.
+  * Grab dsc information from dsc file already in pool in case of binary only
+    uploads.
+  * Allow Generate_Source() to handle binary only uploads.
 
- -- Andres Mejia <mcitadel@gmail.com>  Sat, 25 Oct 2008 22:23:11 -0400
+ -- Andres Mejia <mcitadel@gmail.com>  Mon, 27 Oct 2008 01:39:00 -0400
 
 debpool (0.4.1) experimental; urgency=low
 

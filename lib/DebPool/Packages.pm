@@ -102,6 +102,16 @@ our $Error;
 
 # None
 
+### Our necessary DebPool Modules
+
+use DebPool::Config qw(:vars);
+use DebPool::DB qw(:functions :vars);
+use DebPool::Logging qw(:functions :facility :level);
+use DebPool::Dpkg qw(:functions);
+use DebPool::Dirs qw(:functions);
+use DebPool::Parser qw(:functions);
+use DebPool::Util qw(:functions);
+
 ### Meaningful functions
 
 # Allow_Version($package, $version, $distribution, $arch)
@@ -113,12 +123,8 @@ our $Error;
 # case of an error.
 
 sub Allow_Version {
-    use DebPool::Config qw(:vars);
-    use DebPool::DB qw(:functions);
-    use DebPool::Logging qw(:functions :facility :level);
-    use DebPool::Dpkg qw(:functions);
-
     my($package, $version, $distribution, $arch) = @_;
+
     my $old_version = Get_Version($distribution, $package, 'meta');
 
     # If we permit rollback, any version is valid.
@@ -175,10 +181,6 @@ sub Allow_Version {
 # ignored - however, every non-source arch gets 'all' files.
 
 sub Generate_List {
-    use DebPool::Config qw(:vars);
-    use DebPool::DB qw(:functions :vars);
-    use DebPool::Dirs qw(:functions);
-
     my($distribution, $section, $arch) = @_;
 
     my %packages;
@@ -291,11 +293,6 @@ sub Generate_List {
 # if not (and sets $Error).
 
 sub Install_Package {
-    use DebPool::Config qw(:vars);
-    use DebPool::Dirs qw(:functions);
-    use DebPool::DB qw(:functions :vars);
-    use DebPool::Util qw(:functions);
-
     my($changes, $dsc, $distributions, $changes_data, $dsc_data) = @_;
 
     my $incoming_dir = $Options{'incoming_dir'};
@@ -384,14 +381,8 @@ sub Install_Package {
     }
 
     # Update the various databases.
-    # This whole block is just to calculate the component. What a stupid
-    # setup - it should be in the changes file. Oh well.
-
-    my @filearray = (keys %{$changes_data->{'Files'}});
-    my $fileref = $filearray[0];
-    my $section = $changes_data->{'Files'}{$fileref}[2];
+    my $section = Guess_Section($changes_data);
     my $component = Strip_Subsection($section);
-
     foreach my $distribution (@{$distributions}) {
         Set_Versions($distribution, $pkg_name, $pkg_ver,
             $changes_data->{'Files'});
@@ -412,10 +403,6 @@ sub Install_Package {
 # file in $changes. Returns 1 if successful, 0 if not (and sets $Error).
 
 sub Reject_Package {
-    use DebPool::Config qw(:vars);
-    use DebPool::DB qw(:functions);
-    use DebPool::Util qw(:functions);
-
     my($changes, $changes_data) = @_;
 
     my $incoming_dir = $Options{'incoming_dir'};
@@ -451,8 +438,6 @@ sub Reject_Package {
 # 0 if it doesn't, and undef (also setting $Error) if an error occurs.
 
 sub Verify_MD5 {
-    use DebPool::Logging qw(:functions :facility :level);
-
     my($file, $md5) = @_;
 
     # Read in and mangle the md5 output.
@@ -492,10 +477,6 @@ sub Verify_MD5 {
 # undef (and sets $Error) on an error.
 
 sub Audit_Package {
-    use DebPool::Config qw(:vars);
-    use DebPool::Dirs qw(:functions);
-    use DebPool::Logging qw(:functions :facility :level);
-
     my($package, $changefile, $changes_data) = @_;
 
     # Checking for version of package being installed
@@ -650,87 +631,48 @@ sub Audit_Package {
 # (and sets $Error) on failure.
 
 sub Generate_Package {
-    use DebPool::Config qw(:vars);
-    use DebPool::Dirs qw(:functions);
-    use DebPool::Logging qw(:functions :facility :level);
-    use DebPool::Dpkg qw(:functions);
-    use DebPool::Parser qw(:functions);
-
     my($changes_data, $arch) = @_;
+
     my $source = $changes_data->{'Source'};
     my $source_version = $changes_data->{'Source-Version'};
 
-    my @files = (keys %{$changes_data->{'Files'}});
+    my @packages = (grep(/u?deb$/, (keys %{$changes_data->{'Files'}})));
     my $pool_base = PoolBasePath();
 
     # Grab a temporary file.
-
     my($tmpfile_handle, $tmpfile_name) = tempfile();
 
-    my @packages = @{$changes_data->{'Binary'}};
-
-    my $package;
-
     foreach my $package (@packages) {
-        # Construct a pattern to match the filename and nothing else.
-        # This used to be an exact match using the source version, but
-        # Debian's standards are sort of insane, and the version number
-        # on binary files is not always the same as that on the source
-        # file (nor is it even something simple like "source version
-        # without the epoch" -- it is more or less arbitrary, as long
-        # as it is a well-formed version number).
-        my $filepat = qr/^\Q${package}_\E.*\Q_${arch}.\Eu?deb/;
         my $section = Guess_Section($changes_data);
         my $pool = join('/', (PoolDir($source, $section), $source));
 
-        my $marker = -1;
-        # Step through each file, match against filename. Save matches
-        # for later use.
-
-        for my $count (0..$#files) {
-            if ($files[$count] =~ m/^$filepat$/) {
-                $marker = $count;
-            }
-        }
-
-        # The changes file has a stupid quirk; it puts all binaries from
-        # a package in the Binary: line, even if they weren't built (for
-        # example, an Arch: all doc package when doing an arch-only build
-        # for a port). So if we didn't find a .deb file for it, assume
-        # that it's one of those, and skip, rather than choking on it.
-
-        next if (-1 == $marker);
-
         # Run DpkgDeb_Control() to extract the control file from the deb
         # archive. Then parse the control file.
-
-        my $file = $files[$marker];
         my $tmpdir = tempdir(CLEANUP => 1);
-        if (!DpkgDeb_Control("$Options{'pool_dir'}/$pool/$file", $tmpdir)) {
+        if (!DpkgDeb_Control("$Options{'pool_dir'}/$pool/$package", $tmpdir)) {
             my $msg = "Could not extract control file from deb file ";
-            $msg .= "$Options{'pool_dir'}/$pool/$file";
+            $msg .= "$Options{'pool_dir'}/$pool/$package";
             Log_Message($msg, LOG_GENERAL, LOG_ERROR);
             return;
         }
-        my $info = Parse_File("$tmpdir/control");
+        my $control = Parse_File("$tmpdir/control");
 
         # Dump all of our data into the metadata tempfile.
-
         print $tmpfile_handle "Package: $package\n";
 
-        if (defined($info->{'Priority'})) {
-            print $tmpfile_handle "Priority: $info->{'Priority'}\n";
+        if (defined($control->{'Priority'})) {
+            print $tmpfile_handle "Priority: $control->{'Priority'}\n";
         }
 
-        if (defined($info->{'Section'})) {
-            print $tmpfile_handle "Section: $info->{'Section'}\n";
+        if (defined($control->{'Section'})) {
+            print $tmpfile_handle "Section: $control->{'Section'}\n";
         }
 
-        if (defined($info->{'Essential'})) {
-            print $tmpfile_handle "Essential: $info->{'Essential'}\n";
+        if (defined($control->{'Essential'})) {
+            print $tmpfile_handle "Essential: $control->{'Essential'}\n";
         }
 
-        print $tmpfile_handle "Installed-Size: $info->{'Installed-Size'}\n";
+        print $tmpfile_handle "Installed-Size: $control->{'Installed-Size'}\n";
 
         print $tmpfile_handle "Maintainer: $changes_data->{'Maintainer'}\n";
         print $tmpfile_handle "Architecture: $arch\n";
@@ -743,44 +685,40 @@ sub Generate_Package {
 
         # All of the inter-package relationships go together, and any
         # one of them can potentially be empty (and omitted).
-
         my @Relationship_Fields = ('Pre-Depends', 'Depends', 'Provides',
             'Conflicts', 'Recommends', 'Suggests', 'Enhances', 'Replaces',);
         foreach my $field (@Relationship_Fields) {
-            if (defined($info->{$field})) {
+            if (defined($control->{$field})) {
                 print $tmpfile_handle "${field}: " .
-                    join(', ', @{$info->{$field}}) . "\n";
+                    join(', ', @{$control->{$field}}) . "\n";
             }
         }
 
-        # And now, some stuff we can grab out of the parsed changes
-        # data far more easily than anywhere else.
-
-        print $tmpfile_handle "Filename: $pool_base/$pool/$file\n";
-
+        # Some stuff we can grab out of the parsed changes data far more easily
+        # than anywhere else.
+        print $tmpfile_handle "Filename: $pool_base/$pool/$package\n";
         print $tmpfile_handle "Size: " .
-            $changes_data->{'Files'}{$files[$marker]}[1] . "\n";
+            $changes_data->{'Files'}{$package}[1] . "\n";
         print $tmpfile_handle "MD5sum: " .
-            $changes_data->{'Files'}{$files[$marker]}[0] . "\n";
+            $changes_data->{'Files'}{$package}[0] . "\n";
         print $tmpfile_handle "SHA1: " .
-            $changes_data->{'Checksums-Sha1'}{$files[$marker]}[0] . "\n";
+            $changes_data->{'Checksums-Sha1'}{$package}[0] . "\n";
         print $tmpfile_handle "SHA256: " .
-            $changes_data->{'Checksums-Sha256'}{$files[$marker]}[0] . "\n";
+            $changes_data->{'Checksums-Sha256'}{$package}[0] . "\n";
 
+        # Our description and homepage from the package's control file.
         print $tmpfile_handle "Description: ";
-        foreach my $tmp (@{$info->{'Description'}}) {
+        foreach my $tmp (@{$control->{'Description'}}) {
             print $tmpfile_handle "$tmp\n";
         }
-
-        if (defined $info->{'Homepage'}) {
-            print $tmpfile_handle "Homepage: $info->{'Homepage'}\n";
+        if (defined $control->{'Homepage'}) {
+            print $tmpfile_handle "Homepage: $control->{'Homepage'}\n";
         }
 
         print $tmpfile_handle "\n";
     }
 
     # All done
-
     close($tmpfile_handle);
     return $tmpfile_name;
 }
@@ -793,38 +731,59 @@ sub Generate_Package {
 # (and sets $Error) on failure.
 
 sub Generate_Source {
-    use DebPool::Dirs qw(:functions);
-    use DebPool::Logging qw(:functions :facility :level);
-
     my($dsc, $dsc_data, $changes_data) = @_;
+
     my $source = $dsc_data->{'Source'};
+    my $version = $dsc_data->{'Version'};
+    my $source_version = $changes_data->{'Source-Version'}; # if binNMU
     my @files = (keys %{$dsc_data->{'Files'}});
-    my @checksums_sha1 = grep(!/\.dsc$/,
-        (keys %{$dsc_data->{'Checksums-Sha1'}}));
-    my @checksums_sha256 = grep(!/\.dsc$/,
-        (keys %{$dsc_data->{'Checksums-Sha256'}}));
+    my @checksums_sha1 = (keys %{$dsc_data->{'Checksums-Sha1'}});
+    my @checksums_sha256 = (keys %{$dsc_data->{'Checksums-Sha256'}});
 
     # Figure out the priority and section, using the DSC filename and
-    # the Changes file data.
+    # the Changes file data. We also determine the pool path here.
+    my ($section, $priority, $poolpath);
+    foreach my $filehr (grep(/^$dsc$/,(keys %{$changes_data->{'Files'}}))) {
+        $section = $changes_data->{'Files'}{$filehr}[2];
+        $priority = $changes_data->{'Files'}{$filehr}[3];
+        $poolpath = join('/',
+            (PoolBasePath(), PoolDir($source, $section), $source));
+    }
 
-    my ($section, $priority);
-    foreach my $filehr (keys %{$changes_data->{'Files'}}) {
-        if ($filehr eq $dsc) {
-            $section = $changes_data->{'Files'}{$filehr}[2];
-            $priority = $changes_data->{'Files'}{$filehr}[3];
+    # If we don't have a section or priority at this point, it probably means
+    # we're doing a binary only upload. Thus we determine the pool path using
+    # the section from one of the binary packages. We then parse a .source file
+    # that should already be in the pool area and grab the section and priority
+    # from this file.
+    if ((!$section) or (!$priority)) {
+            foreach my $filehr (keys %{$changes_data->{'Files'}}) {
+            my $tmpsection = $changes_data->{'Files'}{$filehr}[2];
+            $poolpath = join('/',
+                (PoolBasePath(), PoolDir($source, $tmpsection), $source));
+            my $sourcedata;
+            my $pattern = $source . "_" . Strip_Epoch($source_version);
+            opendir(my $dh, "$Options{'archive_dir'}/$poolpath");
+            foreach my $tmp (grep(/^\Q$pattern\E(\+b\d+|)\.source$/,
+                readdir($dh))) {
+                $sourcedata =
+                    Parse_File("$Options{'archive_dir'}/$poolpath/$tmp");
+                last if ($sourcedata);
+            }
+            closedir $dh;
+            $section = $sourcedata->{'Section'};
+            $priority = $sourcedata->{'Priority'};
+            last if (($section) and ($priority));
         }
     }
 
     # Grab a temporary file.
-
     my($tmpfile_handle, $tmpfile_name) = tempfile();
 
     # Dump out various metadata.
-
     print $tmpfile_handle "Package: $source\n";
     print $tmpfile_handle
         "Binary: " . join(', ', @{$dsc_data->{'Binary'}}) . "\n";
-    print $tmpfile_handle "Version: $dsc_data->{'Version'}\n";
+    print $tmpfile_handle "Version: $version\n";
     print $tmpfile_handle "Priority: $priority\n";
     print $tmpfile_handle "Section: $section\n";
     print $tmpfile_handle "Maintainer: $dsc_data->{'Maintainer'}\n";
@@ -846,10 +805,9 @@ sub Generate_Source {
 
     print $tmpfile_handle
         "Standards-Version: $dsc_data->{'Standards-Version'}\n"
-    if  exists $dsc_data->{'Standards-Version'};
+        if exists $dsc_data->{'Standards-Version'};
     print $tmpfile_handle "Format: $dsc_data->{'Format'}\n";
-    print $tmpfile_handle "Directory: " .  join('/',
-        (PoolBasePath(), PoolDir($source, $section), $source)) . "\n";
+    print $tmpfile_handle "Directory: $poolpath/$source\n";
 
     print $tmpfile_handle "Files:\n";
     foreach my $fileref (@files) {
@@ -909,9 +867,6 @@ sub Generate_Source {
 # Returns 1 on success, or 0 (and sets $Error) on failure.
 
 sub Install_List {
-    use DebPool::Config qw(:vars);
-    use DebPool::Dirs qw(:functions);
-
     my($archive, $component, $architecture, $listfile, $zfiles) = @_;
 
     my $dists_file_mode = $Options{'dists_file_mode'};
@@ -946,13 +901,12 @@ sub Install_List {
 # for the first file listed in the changes.
 
 sub Guess_Section {
+    my($changes_data) = @_;
+
     # Pull out the primary section from the changes data. Note that this is
     # a cheap hack, but it is mostly used when needing the pool directory
     # section, which is based solely on freeness-sections (main, contrib,
     # non-free).
-
-    my($changes_data) = @_;
-
     my @changes_files = (keys %{$changes_data->{'Files'}});
     return $changes_data->{'Files'}{$changes_files[0]}[2];
 }

@@ -197,14 +197,15 @@ foreach my $changefile (@changefiles) {
 
     # $changes_data will be a hash reference
     my $changes_data = Parse_File("$Options{'incoming_dir'}/$changefile");
-    if (!%{$changes_data}) {
+    if (!$changes_data) {
         Log_Message("Failure parsing changes file '$changefile': " .
                     $DebPool::Packages::Error, LOG_GENERAL, LOG_ERROR);
         next;
     }
 
     # Name of the source package
-    my($package) = $changes_data->{'Source'};
+    my $package = $changes_data->{'Source'};
+    my $section = Guess_Section($changes_data);
 
     # Version of the package
     my $version = $changes_data->{'Version'};
@@ -242,8 +243,18 @@ foreach my $changefile (@changefiles) {
     if ($with_source) {
         # $dsc_data will be a hash reference
         $dsc_data = Parse_File("$Options{'incoming_dir'}/$dscfile");
-        if ($with_source && !%{$dsc_data}) {
+        if (!$dsc_data) {
             Log_Message("Failure parsing dsc file '$dscfile': " .
+                    $DebPool::Packages::Error, LOG_GENERAL, LOG_ERROR);
+            next;
+        }
+    } else {
+        # We grab the dsc data from the dsc file already in the pool
+        $dsc_data = Parse_File(join('/',
+            ($Options{'pool_dir'}, PoolDir($package, $section), $package)) .
+            "/$dscfile");
+        if (!$dsc_data) {
+            Log_Message("Failure parsing dsc file '$dscfile' from pool: " .
                     $DebPool::Packages::Error, LOG_GENERAL, LOG_ERROR);
             next;
         }
@@ -308,7 +319,6 @@ foreach my $changefile (@changefiles) {
 
             my $filekey = $file; # Save the key value for later use
             if ($file =~ /\Qorig.tar.gz\E$/) {
-                my($section) = Guess_Section($changes_data);
                 my($pkg_pooldir) = join('/',
                     ($Options{'pool_dir'}, PoolDir($package, $section),
                     $package));
@@ -359,7 +369,6 @@ foreach my $changefile (@changefiles) {
         }
     } else { # Assuming a binary only upload
         # The dsc file should be uploaded
-        my($section) = Guess_Section($changes_data);
         my($pkg_pooldir) = join('/',
             ($Options{'pool_dir'}, PoolDir($package, $section),
             $package));
