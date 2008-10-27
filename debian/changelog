@@ -11,8 +11,10 @@ debpool (0.5.0) experimental; urgency=low
   * Grab dsc information from dsc file already in pool in case of binary only
     uploads.
   * Allow Generate_Source() to handle binary only uploads.
+  * Fix issue where Packages and Sources files were not being generated for
+    binary only uploads.
 
- -- Andres Mejia <mcitadel@gmail.com>  Mon, 27 Oct 2008 01:39:00 -0400
+ -- Andres Mejia <mcitadel@gmail.com>  Mon, 27 Oct 2008 16:38:15 -0400
 
 debpool (0.4.1) experimental; urgency=low
 

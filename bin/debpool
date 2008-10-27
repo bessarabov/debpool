@@ -500,24 +500,13 @@ foreach my $changefile (@changefiles) {
 # rebuild Release files that need it, if we're doing them.
 
 foreach my $dist (keys(%rebuild)) {
-    my(@rel_filelist) = ();
+    my @rel_filelist;
     foreach my $section (@{$Options{'sections'}}) {
-        my(@archs) = @{$Options{'archs'}};
-        @archs = grep(!/^all$/, @archs); # We don't build binary-all files.
-
-        my($arch);
 
 ARCH_LOOP:
-        foreach $arch (@{$Options{'archs'}}) {
-            # We cheat, and use @triple for dist/section/arch inputs.
-            # Perl lets us get away with this. I'd care, except that Perl
-            # prototyping isn't, so it's useless to not do this.
-
-            my(@triple) = ($dist, $section, $arch);
-
+        foreach my $arch (grep(!/^all$/, @{$Options{'archs'}})) {
             # Generate a Packages/Sources file.
-
-            my($file) = Generate_List(@triple);
+            my($file) = Generate_List($dist, $section, $arch);
 
             if (!defined($file)) {
                 my($msg) = "Couldn't create list for $dist/$section/${arch}: ";
@@ -546,7 +535,7 @@ ARCH_LOOP:
 
             # Install {Packages,Sources}{,.gz}
 
-            if (!Install_List(@triple, $file, \@zfiles)) {
+            if (!Install_List($dist, $section, $arch, $file, \@zfiles)) {
 
                 my($msg) = "Couldn't install distribution files for ";
                 $msg .= "$dist/$section/${arch}: " . $DebPool::Packages::Error;
@@ -575,7 +564,7 @@ ARCH_LOOP:
 
                 my($release_version) = strftime('%Y.%m.%d.%H.%M.%S', gmtime());
                 $relfile = DebPool::Release::Generate_Release_Triple(
-                    @triple, $release_version);
+                    $dist, $section, $arch, $release_version);
 
                 if (!defined($relfile)) {
                     my($msg) = "Couldn't create Release file: ";
@@ -608,7 +597,7 @@ ARCH_LOOP:
             # Install Release{,.gpg}
 
             if (defined($relfile) &&
-                !DebPool::Release::Install_Release(@triple, $relfile, $sigfile)) {
+                !DebPool::Release::Install_Release($dist, $section, $arch, $relfile, $sigfile)) {
 
                 my($msg) = "Couldn't install release files for ";
                 $msg .= "$dist/$section/${arch}: " . $DebPool::Release::Error;
@@ -625,7 +614,7 @@ ARCH_LOOP:
                 next;
             }
 
-            my($pushfile) = Archfile(@triple, 0);
+            my($pushfile) = Archfile($dist, $section, $arch, 0);
             $pushfile =~ s/${dist}\///;
             push(@rel_filelist, $pushfile);
 
@@ -635,7 +624,7 @@ ARCH_LOOP:
             }
 
             if (defined($relfile)) {
-                $pushfile = Archfile(@triple, 1);
+                $pushfile = Archfile($dist, $section, $arch, 1);
                 $pushfile =~ s/${dist}\///;
                 $pushfile .= '/Release';
                 push(@rel_filelist, $pushfile);
@@ -648,7 +637,6 @@ ARCH_LOOP:
     }
 
     # If we're doing Release files, now is the time for the general dist one.
-
     my($relfile);
     my($sigfile);
 
@@ -656,7 +644,6 @@ ARCH_LOOP:
         require DebPool::Release;
 
         # Release versions are YYYY.MM.DD.HH.MM.SS (GMT) by default.
-
         my($release_version) = strftime('%Y.%m.%d.%H.%M.%S', gmtime());
         $relfile = DebPool::Release::Generate_Release_Dist(
             $dist, $release_version, @rel_filelist);
@@ -681,7 +668,6 @@ ARCH_LOOP:
     }
 
     # Install Release{,.gpg}
-
     if (defined($relfile) &&
         !DebPool::Release::Install_Release($dist, undef, undef,
             $relfile, $sigfile)) {

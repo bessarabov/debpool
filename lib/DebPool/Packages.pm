@@ -72,13 +72,14 @@ BEGIN {
         &Reject_Package
         &Verify_MD5
         &Strip_Epoch
+        &Get_Package_Files
     );
 
     %EXPORT_TAGS = (
         'functions' => [qw(&Allow_Version &Audit_Package &Generate_List
                         &Generate_Package &Generate_Source &Guess_Section
                         &Install_List &Install_Package &Reject_Package
-                        &Verify_MD5 &Strip_Epoch)],
+                        &Verify_MD5 &Strip_Epoch &Get_Package_Files)],
         'vars' => [qw()],
     );
 }
@@ -183,8 +184,6 @@ sub Allow_Version {
 sub Generate_List {
     my($distribution, $section, $arch) = @_;
 
-    my %packages;
-
     if ('all' eq $arch) {
         $Error = "No point in generating Packages file for binary-all";
         return;
@@ -218,15 +217,19 @@ sub Generate_List {
             my $pool = join('/',
                 ($Options{'pool_dir'}, PoolDir($source, $section), $source));
             my $version = Get_Version($distribution, $source, 'meta');
-            my $target = "$pool/${source}_" . Strip_Epoch($version);
-            $target .= "_$arch\.package";
-            my $target_all = "$pool/${source}_" . Strip_Epoch($version);
-            $target_all .= "_all\.package";
 
-        my ($pkg_arch_fh, $pkg_all_fh);
+            my $archpackagefiles =
+                Get_Package_Files($source, $version, $section, $arch);
+            my $archallpackagefiles =
+                Get_Package_Files($source, $version, $section, 'all');
+
+            my $target = @{$archpackagefiles}[0];
+            my $target_all = @{$archallpackagefiles}[0];
+
+            my ($pkg_arch_fh, $pkg_all_fh);
 
             # Check for any binary-arch packages
-            if (-e $target) {
+            if (($target) and (-e $target)) {
                 if (!open($pkg_arch_fh, '<', "$target")) {
                     my $msg = "Skipping package entry for all packages from ";
                     $msg .=
@@ -238,7 +241,7 @@ sub Generate_List {
             }
 
             # Check for any binary-all packages
-            if (-e $target_all) {
+            if (($target_all) and (-e $target_all)) {
                 if (!open($pkg_all_fh, '<', "$target_all")) {
                     my $msg = "Skipping package entry for all packages ";
                     $msg .= "from ${source}: couldn't open '$target_all' for";
@@ -262,7 +265,8 @@ sub Generate_List {
             }
 
             my @all_entries;
-            if (-e $target_all) { # Write entries from all packages
+            if (($target_all) and (-e $target_all)) {
+                # Write entries from all packages
                 @all_entries = <$pkg_all_fh>;
                 close($pkg_all_fh);
             }
@@ -760,16 +764,18 @@ sub Generate_Source {
             my $tmpsection = $changes_data->{'Files'}{$filehr}[2];
             $poolpath = join('/',
                 (PoolBasePath(), PoolDir($source, $tmpsection), $source));
+            my $poolfullpath = "$Options{'archive_dir'}/$poolpath";
             my $sourcedata;
-            my $pattern = $source . "_" . Strip_Epoch($source_version);
-            opendir(my $dh, "$Options{'archive_dir'}/$poolpath");
+            my $pattern = "$poolfullpath/$source" . "_" .
+                Strip_Epoch($source_version);
+            my @testlist = grep(/^\Q$pattern\E(\+b\d+|)\.source$/,
+                glob($poolfullpath . '/*'));
             foreach my $tmp (grep(/^\Q$pattern\E(\+b\d+|)\.source$/,
-                readdir($dh))) {
+                glob($poolfullpath . '/*'))) {
                 $sourcedata =
-                    Parse_File("$Options{'archive_dir'}/$poolpath/$tmp");
+                    Parse_File($tmp);
                 last if ($sourcedata);
             }
-            closedir $dh;
             $section = $sourcedata->{'Section'};
             $priority = $sourcedata->{'Priority'};
             last if (($section) and ($priority));
@@ -920,6 +926,31 @@ sub Strip_Epoch {
 
     $version =~ s/^[^:]://;
     return $version;
+}
+
+# Package_Files($source, $version, $arch)
+# Parameter data types (string, string, string)
+#
+# Finds the .package files in a pool area and returns an array ref with the
+# list of .package files.
+
+sub Get_Package_Files {
+    my ($source, $version, $section, $arch) = @_;
+
+    my $pool = join('/',
+        ($Options{'pool_dir'}, PoolDir($source, $section), $source));
+    my $tmpversion = Strip_Epoch($version);
+    $tmpversion =~ s/(\+b\d+)$//; # in case of binary only uploads
+
+    my $pattern = "$pool/" . "${source}_$tmpversion";
+    my @packagefiles = grep(/^\Q${pattern}_$arch.package\E$/,
+        glob($pool. '/*'));
+    if (!@packagefiles) { # try looking for binary only uploads
+        @packagefiles = grep(/^\Q$pattern\E(\+b\d+|)_$arch\.package$/,
+            glob($pool. '/*'));
+    }
+
+    return \@packagefiles;
 }
 
 END {}
