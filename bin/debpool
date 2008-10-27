@@ -76,7 +76,7 @@ if ($Options{'compress_dists'}) {
     push @compression_methods, DebPool::Gzip->new();
 }
 if ($Options{'bzcompress_dists'}) {
-    push @compression_methods, DebPool::Bzip2->();
+    push @compression_methods, DebPool::Bzip2->new();
 }
 
 # Create the directory tree. This is clean even it it already exists,
