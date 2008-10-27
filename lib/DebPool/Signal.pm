@@ -36,16 +36,12 @@ package DebPool::Signal;
 
 # We use 'our', so we must have at least Perl 5.6
 
-require 5.006_000;
+use 5.006_000;
 
 # Always good ideas.
 
 use strict;
 use warnings;
-
-# We do logging, so we need this.
-
-use DebPool::Logging qw(:functions :facility :level);
 
 ### Module setup
 
@@ -93,6 +89,10 @@ our($Error);
 ### Constant functions
 
 # None
+
+### Our necessary DebPool modules
+
+use DebPool::Logging qw(:functions :facility :level);
 
 ### Meaningful functions
 

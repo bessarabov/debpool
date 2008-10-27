@@ -36,7 +36,7 @@ package DebPool::Release;
 
 # We use 'our', so we must have at least Perl 5.6
 
-require 5.006_000;
+use 5.006_000;
 
 # Always good ideas.
 
@@ -45,9 +45,6 @@ use warnings;
 
 use POSIX; # strftime
 use File::Temp qw(tempfile);
-
-# We need the Digest modules so that we can calculate the proper checksums.
-
 use Digest::MD5;
 use Digest::SHA;
 
@@ -105,6 +102,12 @@ my(@SigFiles) = (
 
 # None
 
+### Our necessary DebPool modules
+
+use DebPool::Config qw(:vars);
+use DebPool::Dirs qw(:functions);
+use DebPool::Util qw(:functions);
+
 ### Meaningful functions
 
 # Generate_Release_Triple($archive, $component, $architecture, $version)
@@ -115,9 +118,6 @@ my(@SigFiles) = (
 # Returns undef (and sets $Error) on error.
 
 sub Generate_Release_Triple {
-    use DebPool::Config qw(:vars);
-    use DebPool::Dirs qw(:functions);
-
     my($archive, $component, $architecture, $version) = @_;
 
     my(@Checksums);
@@ -236,8 +236,6 @@ sub Generate_Release_Triple {
 # Returns undef (and sets $Error) on error.
 
 sub Generate_Release_Dist {
-    use DebPool::Config qw(:vars);
-
     my($archive) = shift(@_);
     my($version) = shift(@_);
     my(@files) = @_;
@@ -335,9 +333,6 @@ sub Generate_Release_Dist {
 # success.
 
 sub Install_Release {
-    use DebPool::Config qw(:vars);
-    use DebPool::Util qw(:functions);
-
     my($archive, $component, $architecture, $release, $signature) = @_;
 
     my($dists_file_mode) = $Options{'dists_file_mode'};

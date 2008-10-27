@@ -36,7 +36,7 @@ package DebPool::DB;
 
 # We use 'our', so we must have at least Perl 5.6
 
-require 5.006_000;
+use 5.006_000;
 
 # Always good ideas.
 
@@ -112,6 +112,10 @@ our($Error);
 
 # None
 
+### Our necessary DebPool modules
+
+use DebPool::Config qw(:vars);
+
 ### Meaningful functions
 
 # Open_Databases()
@@ -120,8 +124,6 @@ our($Error);
 # case of errors opening hashes, 1 otherwise.
 
 sub Open_Databases {
-    use DebPool::Config qw(:vars);
-
     my($db_dir) = $Options{'db_dir'};
     my($db_file_mode) = $Options{'db_file_mode'};
 

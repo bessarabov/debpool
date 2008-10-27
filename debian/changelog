@@ -13,8 +13,9 @@ debpool (0.5.0) experimental; urgency=low
   * Allow Generate_Source() to handle binary only uploads.
   * Fix issue where Packages and Sources files were not being generated for
     binary only uploads.
+  * Change perl 'require' function to 'use' function as appropriate.
 
- -- Andres Mejia <mcitadel@gmail.com>  Mon, 27 Oct 2008 16:38:15 -0400
+ -- Andres Mejia <mcitadel@gmail.com>  Mon, 27 Oct 2008 17:14:52 -0400
 
 debpool (0.4.1) experimental; urgency=low
 

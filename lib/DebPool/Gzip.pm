@@ -36,7 +36,7 @@ package DebPool::Gzip;
 
 # We use 'our', so we must have at least Perl 5.6
 
-require 5.006_000;
+use 5.006_000;
 
 # Always good ideas.
 
@@ -44,6 +44,7 @@ use strict;
 use warnings;
 
 use POSIX; # WEXITSTATUS
+use Compress::Zlib; # For compressing files in gzip format
 
 ### Module setup
 
@@ -86,6 +87,10 @@ our($Error);
 
 # None
 
+### Our necessary DebPool modules
+
+use DebPool::Logging qw(:functions :facility :level);
+
 ### Meaningful functions
 
 # Gzip_File($file)
@@ -94,9 +99,6 @@ our($Error);
 # filename. Returns 0 (and sets $Error) on failure.
 
 sub Gzip_File {
-    use DebPool::Logging qw(:functions :facility :level);
-    use Compress::Zlib;
-
     my($file) = @_;
 
     # Open a secure tempfile to write the compressed data into

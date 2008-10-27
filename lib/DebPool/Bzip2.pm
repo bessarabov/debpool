@@ -36,7 +36,7 @@ package DebPool::Bzip2;
 
 # We use 'our', so we must have at least Perl 5.6
 
-require 5.006_000;
+use 5.006_000;
 
 # Always good ideas.
 
@@ -44,6 +44,7 @@ use strict;
 use warnings;
 
 use POSIX; # WEXITSTATUS
+use Compress::Bzip2; # For compressing files in bzip2 format
 
 ### Module setup
 
@@ -86,6 +87,10 @@ our($Error);
 
 # None
 
+### Our necessary DebPool modules
+
+use DebPool::Logging qw(:functions :facility :level);
+
 ### Meaningful functions
 
 # Bzip_File($file)
@@ -94,13 +99,9 @@ our($Error);
 # 0 (and sets $Error) on failure.
 
 sub Bzip2_File {
-    use DebPool::Logging qw(:functions :facility :level);
-    use Compress::Bzip2;
-
     my($file) = @_;
 
     # Open a secure tempfile to write the compressed data into
-
     my($tmpfile) = new File::Temp( SUFFIX => '.bz2' );
     my $bz = bzopen($tmpfile, 'wb9');
     if (!$bz) {

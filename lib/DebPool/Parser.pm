@@ -36,7 +36,7 @@ package DebPool::Parser;
 
 # We use 'our', so we must have at least Perl 5.6
 
-require 5.006_000;
+use 5.006_000;
 
 # Always good ideas.
 
@@ -131,6 +131,11 @@ my %Field_Types = (
 
 # None
 
+### Our necessary DebPool modules
+
+use DebPool::GnuPG qw(:functions); # To strip GPG encoding
+use DebPool::Logging qw(:functions :facility :level);
+
 ### Meaningful functions
 
 # Parse_File($file)
@@ -141,9 +146,6 @@ my %Field_Types = (
 
 sub Parse_File {
     my ($file) = @_;
-
-    use DebPool::GnuPG qw(:functions); # To strip GPG encoding
-    use DebPool::Logging qw(:functions :facility :level);
 
     # Read in the entire file, stripping GPG encoding if we find
     # it. It should be small, this is fine.

@@ -36,7 +36,7 @@ package DebPool::Dirs;
 
 # We use 'our', so we must have at least Perl 5.6
 
-require 5.006_000;
+use 5.006_000;
 
 # Always good ideas.
 
@@ -100,6 +100,11 @@ my($inotify);
 
 # None
 
+### Our necessary DebPool modules
+
+use DebPool::Config qw(:vars);
+use DebPool::Logging qw(:functions :facility :level);
+
 ### Meaningful functions
 
 # Create_Tree()
@@ -109,11 +114,8 @@ my($inotify);
 # or propagates $Error).
 
 sub Create_Tree {
-    use DebPool::Config qw(:vars);
-
     # Basic directories - none of these are terribly exciting. We don't set
     # $Error on failure, because Tree_Mkdir will have already done so.
-
     if (!Tree_Mkdir($Options{'db_dir'}, $Options{'db_dir_mode'})) {
         return 0;
     }
@@ -309,8 +311,6 @@ sub Scan_All {
 # Returns 1 on success, 0 on failure (and sets $Error).
 
 sub Setup_Incoming_Watch {
-    use DebPool::Logging qw(:functions :facility :level);
-    use DebPool::Config;
     if (!eval{ require Linux::Inotify2; }) {
         my $msg = "liblinux-inotify2-perl is required to activate inotify ";
         $msg .= "support for debpool.";
@@ -320,7 +320,7 @@ sub Setup_Incoming_Watch {
         use Linux::Inotify2;
     }
 
-    $inotify = new Linux::Inotify2;
+    $inotify = Linux::Inotify2->new();
     if (!$inotify) {
         $Error = "Unable to create new inotify object: $!";
         Log_Message("$Error", LOG_GENERAL, LOG_ERROR);
@@ -348,8 +348,6 @@ sub Setup_Incoming_Watch {
 # includes interruption by a signal).
 
 sub Watch_Incoming {
-    use DebPool::Logging qw(:functions :facility :level);
-
     while (my @events = $inotify->read) {
     my @changes;
     foreach (@events) {
@@ -371,13 +369,9 @@ sub Watch_Incoming {
 # includes interruption by a signal - check $DebPool::Signal::Signal_Caught).
 
 sub Monitor_Incoming {
-    use DebPool::Config;
-    use DebPool::Logging qw(:functions :facility :level);
-
     # If this is ever false, we either shouldn't have been called in the
     # first place, or we've caught a signal and shouldn't do anything
     # further.
-
     if ($DebPool::Signal::Signal_Caught) {
         return;
     }
@@ -438,8 +432,6 @@ sub PoolDir {
 # are otherwise valid).
 
 sub Strip_Subsection {
-    use DebPool::Config qw(:vars);
-
     my($section) = @_;
 
     if (!defined($section)) {
@@ -464,8 +456,6 @@ sub Strip_Subsection {
 # things are royally screwed up *anyway*...
 
 sub PoolBasePath {
-    use DebPool::Config qw(:vars);
-
     my($path) = $Options{'pool_dir'};
     $path =~ s/^$Options{'archive_dir'}\///;
     return $path;

@@ -36,7 +36,7 @@ package DebPool::GnuPG;
 
 # We use 'our', so we must have at least Perl 5.6
 
-require 5.006_000;
+use 5.006_000;
 
 # Always good ideas.
 
@@ -45,11 +45,8 @@ use warnings;
 
 use POSIX; # WEXITSTATUS
 use File::Temp ();
-
-# We need these for open3()
-
-use Fcntl;
-use IPC::Open3;
+use Fcntl; # for open3()
+use IPC::Open3; # for open3()
 
 ### Module setup
 
@@ -94,6 +91,11 @@ our($Error);
 
 # None
 
+### Our necessary DebPool modules
+
+use DebPool::Config qw(:vars);
+use DebPool::Logging qw(:functions :facility :level);
+
 ### Meaningful functions
 
 # Check_Signature($file, $signature)
@@ -103,9 +105,6 @@ our($Error);
 # an internal signature). Returns 0 on failure, 1 on success.
 
 sub Check_Signature {
-    use DebPool::Config qw(:vars);
-    use DebPool::Logging qw(:functions :facility :level);
-
     my($file, $signature) = @_;
 
     my(@args) = ('--verify', '--no-default-keyring');
@@ -162,9 +161,6 @@ sub Check_Signature {
 # the filename. Returns undef, if an error occurs (and sets $Error).
 
 sub Sign_Release {
-    use DebPool::Config;
-    use DebPool::Logging qw(:functions :facility :level);
-
     my($release_file) = @_;
 
     # Open a secure tempfile to write the signature to

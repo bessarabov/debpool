@@ -25,7 +25,7 @@ package DebPool::Dpkg;
 
 # We use 'our', so we must have at least Perl 5.6
 
-require 5.006_000;
+use 5.006_000;
 
 # Always good ideas.
 
@@ -35,8 +35,6 @@ use warnings;
 use File::Temp qw(tempfile tempdir); # For making tempfiles
 use Archive::Ar; # For extracting ar files (the format for .deb files)
 use Archive::Tar; # For extracting tar files
-
-use DebPool::Logging qw(:functions :facility :level);
 
 ### Module setup
 
@@ -83,6 +81,10 @@ our($Error);
 ### Constant functions
 
 # None
+
+### Our necessary DebPool modules
+
+use DebPool::Logging qw(:functions :facility :level);
 
 ### Meaningful functions
 
