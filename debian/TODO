@@ -2,7 +2,13 @@ Features, fixes, and other stuff to be done.
 
 (general)
 
-* Parse_DSC and Parse_Changes need to handle multiline entries better.
+* REWRITE! debpool seems to need a complete rewrite, especially with the
+  Packages.pm module and the main debpool script.
+* Get rid of use of .package and .source files. We need to read/write this stuff
+  to the database.
+* The old maintainer would have loved to store the package data as a
+  "hash of hashes of hashrefs", but couldn't because of the database layer.
+  Look into using MLDBM with DB_File instead.
 * Support tools for manipulating metadata (which really means 'anything
   stored in database files').
 * Support rebuild-dbs (including invocation from rebuild-all)?
@@ -62,7 +68,3 @@ Features, fixes, and other stuff to be done.
   signed deb files (in addition to signed metadata).
   - This probably won't happen anytime soon as there's little support for signed
     deb files.
-
-(remove .package and .source metadata from database)
-
-* Use another method to retrieve package metadata instead of using these files.
