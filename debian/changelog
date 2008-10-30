@@ -1,3 +1,9 @@
+debpool (0.5.1) experimental; urgency=low
+
+  * Added depends on libarchive-ar-perl.
+
+ -- Andres Mejia <mcitadel@gmail.com>  Thu, 30 Oct 2008 11:15:02 -0400
+
 debpool (0.5.0) experimental; urgency=low
 
   * Create a new module (Dpkg.pm) that will handle our dpkg routines in a pure
