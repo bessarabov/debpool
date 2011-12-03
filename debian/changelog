@@ -1,3 +1,9 @@
+debpool (0.5.1-bessarabov-1) lucid; urgency=low
+
+  * Just a relase with my name and email to sign deb package 
+
+ -- Ivan Bessarabov <ivan@bessarabov.ru>  Sat, 03 Dec 2011 14:22:37 +0400
+
 debpool (0.5.1) experimental; urgency=low
 
   * Added depends on libarchive-ar-perl.
